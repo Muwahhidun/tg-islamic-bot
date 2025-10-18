@@ -1077,23 +1077,23 @@ async def process_user_id(message: Message, state: FSMContext):
 async def set_user_role(callback: CallbackQuery):
     """Установить роль пользователю"""
     parts = callback.data.split("_")
-    user_id = int(parts[2])
+    user_id = int(parts[2])  # Это внутренний DB ID
     role_id = int(parts[3])
-    
-    # Получаем пользователя и роль
-    user = await UserService.get_user_by_telegram_id(user_id)
+
+    # Получаем пользователя по внутреннему DB ID и роль
+    user = await UserService.get_user_by_id(user_id)
     role = await RoleService.get_role_by_id(role_id)
-    
+
     if not user:
         await callback.answer("❌ Пользователь не найден", show_alert=True)
         return
-    
+
     if not role:
         await callback.answer("❌ Роль не найдена", show_alert=True)
         return
-    
-    # Обновляем роль пользователя
-    await UserService.update_user_role(user_id, role_id)
-    
+
+    # Обновляем роль пользователя по внутреннему DB ID
+    await UserService.update_user_role_by_id(user_id, role_id)
+
     await callback.answer(f"✅ Роль '{role.name}' назначена пользователю", show_alert=True)
     await admin_users(callback)

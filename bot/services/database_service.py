@@ -32,6 +32,15 @@ class UserService(DatabaseService):
                 select(User).options(joinedload(User.role)).where(User.telegram_id == telegram_id)
             )
             return result.scalar_one_or_none()
+
+    @staticmethod
+    async def get_user_by_id(user_id: int) -> Optional[User]:
+        """Получение пользователя по внутреннему DB ID с загруженной ролью"""
+        async with async_session_maker() as session:
+            result = await session.execute(
+                select(User).options(joinedload(User.role)).where(User.id == user_id)
+            )
+            return result.scalar_one_or_none()
     
     @staticmethod
     async def create_user(
@@ -72,10 +81,20 @@ class UserService(DatabaseService):
     
     @staticmethod
     async def update_user_role(telegram_id: int, role_id: int) -> bool:
-        """Обновление роли пользователя"""
+        """Обновление роли пользователя по Telegram ID"""
         async with async_session_maker() as session:
             result = await session.execute(
                 update(User).where(User.telegram_id == telegram_id).values(role_id=role_id)
+            )
+            await session.commit()
+            return result.rowcount > 0
+
+    @staticmethod
+    async def update_user_role_by_id(user_id: int, role_id: int) -> bool:
+        """Обновление роли пользователя по внутреннему DB ID"""
+        async with async_session_maker() as session:
+            result = await session.execute(
+                update(User).where(User.id == user_id).values(role_id=role_id)
             )
             await session.commit()
             return result.rowcount > 0

@@ -38,17 +38,22 @@ def admin_required(func: Callable) -> Callable:
         
         # Проверяем, является ли пользователь администратором
         user_id = message.from_user.id
-        admin_id = int(config.admin_telegram_id)  # Убедимся, что оба значения целые числа
-        
+
         # Добавляем логирование для отладки
         import logging
         logger = logging.getLogger(__name__)
-        logger.info(f"Admin check - User ID: {user_id} (type: {type(user_id)}), Config admin ID: {admin_id} (type: {type(admin_id)}), Match: {user_id == admin_id}")
-        
-        # Проверяем по ID администратора из конфига
-        if user_id == admin_id:
-            logger.info(f"Access granted by config admin ID")
-            return await func(*args, **kwargs)
+
+        # Проверяем по ID администратора из конфига (если задан)
+        try:
+            if config.admin_telegram_id:
+                admin_id = int(config.admin_telegram_id)
+                logger.info(f"Admin check - User ID: {user_id} (type: {type(user_id)}), Config admin ID: {admin_id} (type: {type(admin_id)}), Match: {user_id == admin_id}")
+
+                if user_id == admin_id:
+                    logger.info(f"Access granted by config admin ID")
+                    return await func(*args, **kwargs)
+        except (ValueError, TypeError) as e:
+            logger.warning(f"Invalid ADMIN_TELEGRAM_ID in config: {config.admin_telegram_id}, error: {e}")
         
         # Проверяем по роли в базе данных
         user = await get_user_with_role(user_id)
@@ -103,10 +108,15 @@ def moderator_required(func: Callable) -> Callable:
         
         # Проверяем, является ли пользователь модератором или администратором
         user_id = message.from_user.id
-        
-        # Проверяем по ID администратора из конфига
-        if user_id == config.admin_telegram_id:
-            return await func(*args, **kwargs)
+
+        # Проверяем по ID администратора из конфига (если задан)
+        try:
+            if config.admin_telegram_id:
+                admin_id = int(config.admin_telegram_id)
+                if user_id == admin_id:
+                    return await func(*args, **kwargs)
+        except (ValueError, TypeError):
+            pass  # Если ID администратора не задан или некорректен, продолжаем проверку по БД
         
         # Проверяем по роли в базе данных
         user = await get_user_with_role(user_id)
