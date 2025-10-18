@@ -285,5 +285,32 @@ def user_required_callback(func: Callable) -> Callable:
             kwargs['user'] = user
         
         return await func(callback, *args, **kwargs)
-    
+
     return wrapper
+
+
+async def is_user_admin(user_id: int) -> bool:
+    """
+    Проверить, является ли пользователь администратором
+
+    Args:
+        user_id: Telegram ID пользователя
+
+    Returns:
+        bool: True если пользователь - админ, иначе False
+    """
+    # Проверяем по ID администратора из конфига (если задан)
+    try:
+        if config.admin_telegram_id:
+            admin_id = int(config.admin_telegram_id)
+            if user_id == admin_id:
+                return True
+    except (ValueError, TypeError):
+        pass
+
+    # Проверяем по роли в базе данных
+    user = await get_user_with_role(user_id)
+    if user and user.role and user.role.name in ["admin", "moderator"]:
+        return True
+
+    return False

@@ -6,21 +6,28 @@ from aiogram.types import ReplyKeyboardMarkup, KeyboardButton, InlineKeyboardMar
 from bot.models import Theme, Book, Lesson
 
 
-def get_main_keyboard() -> InlineKeyboardMarkup:
+def get_main_keyboard(is_admin: bool = False) -> InlineKeyboardMarkup:
     """
     Главная инлайн-клавиатура для пользователя
+
+    Args:
+        is_admin: Является ли пользователь администратором
 
     Returns:
         InlineKeyboardMarkup: Главная клавиатура
     """
-    keyboard = InlineKeyboardMarkup(
-        inline_keyboard=[
-            [InlineKeyboardButton(text="📚 Список тем", callback_data="show_themes")],
-            [InlineKeyboardButton(text="🔍 Поиск уроков", callback_data="search_lessons")],
-            [InlineKeyboardButton(text="ℹ️ О проекте", callback_data="about_project")],
-            [InlineKeyboardButton(text="🆔 Мой ID", callback_data="get_my_id")],
-        ]
-    )
+    buttons = [
+        [InlineKeyboardButton(text="📚 Список тем", callback_data="show_themes")],
+        [InlineKeyboardButton(text="🔍 Поиск уроков", callback_data="search_lessons")],
+        [InlineKeyboardButton(text="ℹ️ О проекте", callback_data="about_project")],
+        [InlineKeyboardButton(text="🆔 Мой ID", callback_data="get_my_id")],
+    ]
+
+    # Добавляем кнопку администрирования только для админов
+    if is_admin:
+        buttons.append([InlineKeyboardButton(text="🛠️ Администрирование", callback_data="admin_panel")])
+
+    keyboard = InlineKeyboardMarkup(inline_keyboard=buttons)
     return keyboard
 
 
@@ -48,12 +55,13 @@ def get_admin_keyboard() -> ReplyKeyboardMarkup:
     return keyboard
 
 
-def get_themes_keyboard(themes: list[Theme]) -> InlineKeyboardMarkup:
+def get_themes_keyboard(themes: list[Theme], no_theme_books_count: int = 0) -> InlineKeyboardMarkup:
     """
     Клавиатура со списком тем
 
     Args:
         themes: Список тем
+        no_theme_books_count: Количество книг без темы
 
     Returns:
         InlineKeyboardMarkup: Клавиатура с темами
@@ -64,6 +72,13 @@ def get_themes_keyboard(themes: list[Theme]) -> InlineKeyboardMarkup:
         keyboard.append([InlineKeyboardButton(
             text=f"🔹 {theme.name}",
             callback_data=f"theme_{theme.id}"
+        )])
+
+    # Добавляем виртуальную категорию "Без темы", если есть книги без темы
+    if no_theme_books_count > 0:
+        keyboard.append([InlineKeyboardButton(
+            text=f"📂 Без темы ({no_theme_books_count})",
+            callback_data="theme_none"
         )])
 
     # Кнопка "Главное меню"

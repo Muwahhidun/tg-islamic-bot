@@ -52,7 +52,21 @@ async def main():
     # Включение роутеров
     dp.include_router(user.router)
     dp.include_router(admin.router)
-    
+
+    # ВРЕМЕННЫЙ ОТЛАДОЧНЫЙ ОБРАБОТЧИК - должен быть ПОСЛЕДНИМ
+    @dp.callback_query()
+    async def debug_unhandled_callback(callback: types.CallbackQuery):
+        logger.error(f"🔴 UNHANDLED CALLBACK IN MAIN: {callback.data}")
+        await callback.answer(f"⚠️ Необработанный callback: {callback.data}", show_alert=True)
+
+    @dp.message()
+    async def debug_unhandled_message(message: types.Message):
+        logger.error(f"🔴 UNHANDLED MESSAGE IN MAIN: {message.text}")
+
+    @dp.update()
+    async def debug_unhandled_update(update: types.Update):
+        logger.error(f"🔴 UNHANDLED UPDATE IN MAIN: {update}")
+
     # Создание директории для аудиофайлов
     os.makedirs(config.audio_files_path, exist_ok=True)
     

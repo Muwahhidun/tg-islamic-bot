@@ -319,14 +319,29 @@ async def delete_theme_prompt(callback: CallbackQuery):
         await callback.answer("❌ Тема не найдена")
         return
 
+    # Подсчет статистики для предупреждения
+    books_count = len(theme.books) if theme.books else 0
+    lessons_count = sum(len(book.lessons) if book.lessons else 0 for book in theme.books) if theme.books else 0
+
     builder = InlineKeyboardBuilder()
     builder.add(InlineKeyboardButton(text="✅ Да, удалить", callback_data=f"confirm_delete_theme_{theme.id}"))
     builder.add(InlineKeyboardButton(text="❌ Отмена", callback_data=f"edit_theme_{theme.id}"))
 
+    # Формируем детальное предупреждение
+    warning_text = f"⚠️ <b>Удаление темы</b>\n\n"
+    warning_text += f"Вы уверены, что хотите удалить тему «{theme.name}»?\n\n"
+
+    if books_count > 0:
+        warning_text += f"ℹ️ <b>У этой темы есть {books_count} книг(и)</b>\n"
+        warning_text += f"При удалении темы книги НЕ удалятся, но перейдут в категорию \"Без темы\".\n"
+        if lessons_count > 0:
+            warning_text += f"(в них {lessons_count} уроков)\n"
+        warning_text += "\n"
+
+    warning_text += "Это действие нельзя отменить!"
+
     await callback.message.edit_text(
-        f"⚠️ <b>Удаление темы</b>\n\n"
-        f"Вы уверены, что хотите удалить тему «{theme.name}»?\n"
-        f"Это также удалит все книги и уроки в этой теме!",
+        warning_text,
         reply_markup=builder.as_markup()
     )
     await callback.answer()
@@ -365,6 +380,7 @@ async def back_to_admin_panel(callback: CallbackQuery):
     builder.add(InlineKeyboardButton(text="🎧 Управление уроками", callback_data="admin_lessons"))
     builder.add(InlineKeyboardButton(text="👥 Управление пользователями", callback_data="admin_users"))
     builder.add(InlineKeyboardButton(text="📊 Статистика", callback_data="admin_stats"))
+    builder.add(InlineKeyboardButton(text="🏠 Главное меню", callback_data="main_menu"))
     builder.adjust(1)
 
     await callback.message.edit_text(

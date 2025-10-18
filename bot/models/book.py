@@ -2,7 +2,7 @@
 Модель книг
 """
 from datetime import datetime
-from typing import TYPE_CHECKING
+from typing import TYPE_CHECKING, Optional
 
 from sqlalchemy import String, Text, Integer, Boolean, DateTime, ForeignKey
 from sqlalchemy.orm import Mapped, mapped_column, relationship
@@ -17,12 +17,12 @@ if TYPE_CHECKING:
 
 class Book(Base):
     """Модель книги"""
-    
+
     __tablename__ = "books"
-    
+
     id: Mapped[int] = mapped_column(Integer, primary_key=True)
-    theme_id: Mapped[int] = mapped_column(Integer, ForeignKey("themes.id", ondelete="CASCADE"), index=True)
-    author_id: Mapped[int] = mapped_column(Integer, ForeignKey("book_authors.id"), index=True)
+    theme_id: Mapped[Optional[int]] = mapped_column(Integer, ForeignKey("themes.id", ondelete="SET NULL"), nullable=True, index=True)
+    author_id: Mapped[Optional[int]] = mapped_column(Integer, ForeignKey("book_authors.id", ondelete="SET NULL"), nullable=True, index=True)
     name: Mapped[str] = mapped_column(String(255), nullable=False)
     description: Mapped[str] = mapped_column(Text, nullable=True)
     sort_order: Mapped[int] = mapped_column(Integer, default=0)
@@ -31,8 +31,8 @@ class Book(Base):
     updated_at: Mapped[datetime] = mapped_column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
     
     # Отношения
-    theme: Mapped["Theme"] = relationship(back_populates="books")
-    author: Mapped["BookAuthor"] = relationship(back_populates="books")
+    theme: Mapped[Optional["Theme"]] = relationship(back_populates="books")
+    author: Mapped[Optional["BookAuthor"]] = relationship(back_populates="books")
     lessons: Mapped[list["Lesson"]] = relationship(back_populates="book", cascade="all, delete-orphan")
     
     def __repr__(self) -> str:

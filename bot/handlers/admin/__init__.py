@@ -37,6 +37,7 @@ async def admin_panel(message: Message):
     builder.add(InlineKeyboardButton(text="🎧 Управление уроками", callback_data="admin_lessons"))
     builder.add(InlineKeyboardButton(text="👥 Управление пользователями", callback_data="admin_users"))
     builder.add(InlineKeyboardButton(text="📊 Статистика", callback_data="admin_stats"))
+    builder.add(InlineKeyboardButton(text="🏠 Главное меню", callback_data="main_menu"))
     builder.adjust(1)  # По одной кнопке в ряд
 
     await message.answer(

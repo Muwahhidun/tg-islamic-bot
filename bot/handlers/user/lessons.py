@@ -1,5 +1,6 @@
 from aiogram import Router, F
 from aiogram.types import CallbackQuery
+from aiogram.fsm.context import FSMContext
 
 from bot.services.database_service import LessonService, BookService
 from bot.keyboards.user import get_lessons_keyboard, get_lesson_control_keyboard
@@ -12,10 +13,13 @@ router = Router()
 
 @router.callback_query(F.data.startswith("book_"))
 @user_required_callback
-async def show_lessons(callback: CallbackQuery):
+async def show_lessons(callback: CallbackQuery, state: FSMContext):
     """
     Показать уроки выбранной книги
     """
+    # Очищаем состояние
+    await state.clear()
+
     book_id = int(callback.data.split("_")[1])
     book = await BookService.get_book_by_id(book_id)
 

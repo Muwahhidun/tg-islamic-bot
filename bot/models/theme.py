@@ -27,7 +27,7 @@ class Theme(Base):
     updated_at: Mapped[datetime] = mapped_column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
     
     # Отношения
-    books: Mapped[list["Book"]] = relationship(back_populates="theme", cascade="all, delete-orphan")
+    books: Mapped[list["Book"]] = relationship(back_populates="theme")
     
     def __repr__(self) -> str:
         return f"<Theme(id={self.id}, name='{self.name}')>"

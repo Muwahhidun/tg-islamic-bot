@@ -152,12 +152,14 @@ class ThemeService(DatabaseService):
     
     @staticmethod
     async def get_theme_by_id(theme_id: int) -> Optional[Theme]:
-        """Получение темы по ID"""
+        """Получение темы по ID (с загруженными книгами)"""
         async with async_session_maker() as session:
             result = await session.execute(
-                select(Theme).where(Theme.id == theme_id)
+                select(Theme)
+                .options(joinedload(Theme.books).joinedload(Book.lessons))
+                .where(Theme.id == theme_id)
             )
-            return result.scalar_one_or_none()
+            return result.unique().scalar_one_or_none()
     
     @staticmethod
     async def create_theme(name: str, description: str = None, sort_order: int = 0) -> Theme:
@@ -255,27 +257,57 @@ class BookService(DatabaseService):
     """Сервис для работы с книгами"""
     
     @staticmethod
-    async def get_books_by_theme(theme_id: int) -> List[Book]:
-        """Получение книг по теме"""
+    async def get_books_by_theme(theme_id: Optional[int]) -> List[Book]:
+        """Получение книг по теме (включая книги без темы если theme_id=None)"""
         async with async_session_maker() as session:
+            # Формируем условие для theme_id
+            if theme_id is None:
+                theme_condition = Book.theme_id.is_(None)
+            else:
+                theme_condition = Book.theme_id == theme_id
+
             result = await session.execute(
                 select(Book)
                 .options(joinedload(Book.author))
-                .where(Book.theme_id == theme_id, Book.is_active == True)
+                .outerjoin(Book.author)  # LEFT JOIN - включает книги без автора
+                .where(
+                    theme_condition,
+                    Book.is_active == True,
+                    (BookAuthor.is_active == True) | (BookAuthor.id == None)  # Активный автор ИЛИ без автора
+                )
                 .order_by(Book.sort_order)
             )
             return result.scalars().all()
     
     @staticmethod
+    async def get_books_without_theme_count() -> int:
+        """Получение количества активных книг без темы"""
+        async with async_session_maker() as session:
+            result = await session.execute(
+                select(func.count(Book.id))
+                .outerjoin(Book.author)
+                .where(
+                    Book.theme_id.is_(None),
+                    Book.is_active == True,
+                    (BookAuthor.is_active == True) | (BookAuthor.id == None)
+                )
+            )
+            return result.scalar() or 0
+
+    @staticmethod
     async def get_book_by_id(book_id: int) -> Optional[Book]:
-        """Получение книги по ID"""
+        """Получение книги по ID (с загруженными связанными данными)"""
         async with async_session_maker() as session:
             result = await session.execute(
                 select(Book)
-                .options(joinedload(Book.author))
+                .options(
+                    joinedload(Book.author),
+                    joinedload(Book.theme),
+                    joinedload(Book.lessons)
+                )
                 .where(Book.id == book_id)
             )
-            return result.scalar_one_or_none()
+            return result.unique().scalar_one_or_none()
     
     @staticmethod
     async def create_book(
@@ -356,16 +388,20 @@ class LessonService(DatabaseService):
     
     @staticmethod
     async def search_lessons(query: str) -> List[Lesson]:
-        """Поиск уроков по запросу"""
+        """Поиск уроков по запросу (только из активных книг с активными авторами или без автора)"""
         async with async_session_maker() as session:
             search_pattern = f"%{query}%"
             result = await session.execute(
                 select(Lesson)
+                .join(Lesson.book)
+                .outerjoin(Book.author)  # LEFT JOIN - включает книги без автора
                 .where(
                     Lesson.is_active == True,
-                    func.lower(Lesson.title).like(search_pattern) |
-                    func.lower(Lesson.description).like(search_pattern) |
-                    func.lower(Lesson.tags).like(search_pattern)
+                    Book.is_active == True,  # Проверка активности книги
+                    (BookAuthor.is_active == True) | (BookAuthor.id == None),  # Активный автор ИЛИ без автора
+                    (func.lower(Lesson.title).like(search_pattern) |
+                     func.lower(Lesson.description).like(search_pattern) |
+                     func.lower(Lesson.tags).like(search_pattern))
                 )
             )
             return result.scalars().all()
