@@ -117,7 +117,7 @@ async def create_test_data():
             Lesson(
                 title="Урок 1: Введение в таухид",
                 description="Понятие таухида и его важность",
-                audio_file_path="audio/four_rules_lesson1.mp3",
+                audio_path="audio/four_rules_lesson1.mp3",
                 duration_minutes=30,
                 lesson_number=1,
                 book_id=books[0].id,
@@ -127,7 +127,7 @@ async def create_test_data():
             Lesson(
                 title="Урок 2: Знание о Господе миров",
                 description="Познание Аллаха через Его знаки",
-                audio_file_path="audio/four_rules_lesson2.mp3",
+                audio_path="audio/four_rules_lesson2.mp3",
                 duration_minutes=25,
                 lesson_number=2,
                 book_id=books[0].id,
@@ -137,7 +137,7 @@ async def create_test_data():
             Lesson(
                 title="Урок 3: Знание об исламе с доказательствами",
                 description="Пять столпов ислама и их доказательства",
-                audio_file_path="audio/four_rules_lesson3.mp3",
+                audio_path="audio/four_rules_lesson3.mp3",
                 duration_minutes=35,
                 lesson_number=3,
                 book_id=books[0].id,
@@ -147,7 +147,7 @@ async def create_test_data():
             Lesson(
                 title="Урок 4: Знание о пророке ﷺ",
                 description="Жизнь и миссия пророка Мухаммада",
-                audio_file_path="audio/four_rules_lesson4.mp3",
+                audio_path="audio/four_rules_lesson4.mp3",
                 duration_minutes=40,
                 lesson_number=4,
                 book_id=books[0].id,
@@ -159,7 +159,7 @@ async def create_test_data():
             Lesson(
                 title="Урок 1: Вступление",
                 description="Важность хадисов в жизни мусульманина",
-                audio_file_path="audio/gardens_lesson1.mp3",
+                audio_path="audio/gardens_lesson1.mp3",
                 duration_minutes=20,
                 lesson_number=1,
                 book_id=books[1].id,
@@ -169,7 +169,7 @@ async def create_test_data():
             Lesson(
                 title="Урок 2: Глава о намерении",
                 description="Важность правильного намерения в делах",
-                audio_file_path="audio/gardens_lesson2.mp3",
+                audio_path="audio/gardens_lesson2.mp3",
                 duration_minutes=25,
                 lesson_number=2,
                 book_id=books[1].id,
@@ -181,7 +181,7 @@ async def create_test_data():
             Lesson(
                 title="Урок 1: Определение таухида",
                 description="Три вида таухида и их значение",
-                audio_file_path="audio/foundations_lesson1.mp3",
+                audio_path="audio/foundations_lesson1.mp3",
                 duration_minutes=45,
                 lesson_number=1,
                 book_id=books[2].id,

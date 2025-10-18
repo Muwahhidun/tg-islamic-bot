@@ -303,7 +303,23 @@ async def confirm_delete_theme(callback: CallbackQuery):
 @admin_required
 async def back_to_admin_panel(callback: CallbackQuery):
     """Вернуться в административную панель"""
-    await admin_panel(callback.message)
+    builder = InlineKeyboardBuilder()
+
+    builder.add(InlineKeyboardButton(text="📚 Управление темами", callback_data="admin_themes"))
+    builder.add(InlineKeyboardButton(text="✍️ Управление авторами", callback_data="admin_authors"))
+    builder.add(InlineKeyboardButton(text="👨‍🏫 Управление преподавателями", callback_data="admin_teachers"))
+    builder.add(InlineKeyboardButton(text="📖 Управление книгами", callback_data="admin_books"))
+    builder.add(InlineKeyboardButton(text="🎧 Управление уроками", callback_data="admin_lessons"))
+    builder.add(InlineKeyboardButton(text="👥 Управление пользователями", callback_data="admin_users"))
+    builder.add(InlineKeyboardButton(text="📊 Статистика", callback_data="admin_stats"))
+    builder.adjust(2)
+
+    await callback.message.edit_text(
+        "🛠️ <b>Административная панель</b>\n\n"
+        "Выберите раздел для управления:",
+        reply_markup=builder.as_markup()
+    )
+    await callback.answer()
 
 
 # Управление авторами книг

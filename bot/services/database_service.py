@@ -260,6 +260,7 @@ class BookService(DatabaseService):
         async with async_session_maker() as session:
             result = await session.execute(
                 select(Book)
+                .options(joinedload(Book.author))
                 .where(Book.theme_id == theme_id, Book.is_active == True)
                 .order_by(Book.sort_order)
             )
@@ -270,7 +271,9 @@ class BookService(DatabaseService):
         """Получение книги по ID"""
         async with async_session_maker() as session:
             result = await session.execute(
-                select(Book).where(Book.id == book_id)
+                select(Book)
+                .options(joinedload(Book.author))
+                .where(Book.id == book_id)
             )
             return result.scalar_one_or_none()
     
@@ -306,6 +309,7 @@ class LessonService(DatabaseService):
         async with async_session_maker() as session:
             result = await session.execute(
                 select(Lesson)
+                .options(joinedload(Lesson.teacher), joinedload(Lesson.book))
                 .where(Lesson.book_id == book_id, Lesson.is_active == True)
                 .order_by(Lesson.lesson_number)
             )
@@ -316,7 +320,9 @@ class LessonService(DatabaseService):
         """Получение урока по ID"""
         async with async_session_maker() as session:
             result = await session.execute(
-                select(Lesson).where(Lesson.id == lesson_id)
+                select(Lesson)
+                .options(joinedload(Lesson.teacher), joinedload(Lesson.book).joinedload(Book.author))
+                .where(Lesson.id == lesson_id)
             )
             return result.scalar_one_or_none()
     

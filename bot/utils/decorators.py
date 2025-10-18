@@ -31,13 +31,14 @@ def admin_required(func: Callable) -> Callable:
         # Если это колбэк, получаем из него сообщение
         if callback and not message:
             message = callback.message
-        
+
         if not message:
             # Если нет сообщения, просто вызываем функцию
             return await func(*args, **kwargs)
-        
+
         # Проверяем, является ли пользователь администратором
-        user_id = message.from_user.id
+        # Если есть callback, берем ID из него, иначе из сообщения
+        user_id = callback.from_user.id if callback else message.from_user.id
 
         # Добавляем логирование для отладки
         import logging
@@ -101,13 +102,14 @@ def moderator_required(func: Callable) -> Callable:
         # Если это колбэк, получаем из него сообщение
         if callback and not message:
             message = callback.message
-        
+
         if not message:
             # Если нет сообщения, просто вызываем функцию
             return await func(*args, **kwargs)
-        
+
         # Проверяем, является ли пользователь модератором или администратором
-        user_id = message.from_user.id
+        # Если есть callback, берем ID из него, иначе из сообщения
+        user_id = callback.from_user.id if callback else message.from_user.id
 
         # Проверяем по ID администратора из конфига (если задан)
         try:

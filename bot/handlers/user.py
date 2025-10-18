@@ -335,13 +335,14 @@ async def back_to_books(callback: types.CallbackQuery):
     """
     Вернуться к книгам
     """
-    if "_" in callback.data:
-        # Формат: back_to_books_theme_id
-        theme_id = int(callback.data.split("_")[-1])
+    parts = callback.data.split("_")
+    if len(parts) > 3:  # back_to_books_theme_id имеет 4+ частей
+        # Формат: back_to_books_theme_id или back_to_books_1
+        theme_id = int(parts[-1])
         callback.data = f"theme_{theme_id}"
         await show_books(callback)
     else:
-        # Общий возврат
+        # Общий возврат (просто "back_to_books")
         await show_themes(callback.message)
 
 
