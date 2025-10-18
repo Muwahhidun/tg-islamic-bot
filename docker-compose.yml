@@ -1,0 +1,50 @@
+version: '3.8'
+
+services:
+  bot:
+    build: .
+    container_name: audio_bot
+    restart: unless-stopped
+    env_file:
+      - .env
+    volumes:
+      - ./bot/audio_files:/app/bot/audio_files
+      - ./logs:/app/logs
+    depends_on:
+      - db
+    networks:
+      - bot_network
+
+  db:
+    image: postgres:15-alpine
+    container_name: audio_bot_db
+    restart: unless-stopped
+    environment:
+      POSTGRES_DB: ${DB_NAME}
+      POSTGRES_USER: ${DB_USER}
+      POSTGRES_PASSWORD: ${DB_PASSWORD}
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+      - ./docker/init.sql:/docker-entrypoint-initdb.d/init.sql
+    networks:
+      - bot_network
+    ports:
+      - "5432:5432"
+
+  adminer:
+    image: adminer
+    container_name: audio_bot_adminer
+    restart: unless-stopped
+    ports:
+      - "8080:8080"
+    networks:
+      - bot_network
+    depends_on:
+      - db
+
+volumes:
+  postgres_data:
+
+networks:
+  bot_network:
+    driver: bridge
