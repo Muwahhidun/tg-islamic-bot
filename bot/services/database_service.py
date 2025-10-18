@@ -101,10 +101,10 @@ class UserService(DatabaseService):
     
     @staticmethod
     async def get_all_users(limit: int = 100, offset: int = 0) -> List[User]:
-        """Получение списка всех пользователей"""
+        """Получение списка всех пользователей с загруженными ролями"""
         async with async_session_maker() as session:
             result = await session.execute(
-                select(User).limit(limit).offset(offset)
+                select(User).options(joinedload(User.role)).limit(limit).offset(offset)
             )
             return result.scalars().all()
 
