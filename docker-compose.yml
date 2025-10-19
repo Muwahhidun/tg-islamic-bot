@@ -8,8 +8,10 @@ services:
     env_file:
       - .env
     volumes:
-      - ./bot/audio_files:/app/bot/audio_files
-      - ./logs:/app/logs
+      - ./bot:/app/bot                          # монтируем весь код бота
+      - ./bot/audio_files:/app/bot/audio_files  # уже было
+      - ./logs:/app/logs                        # уже было
+      - ./init_data.py:/app/init_data.py        # скрипт инициализации данных
     depends_on:
       - db
     networks:

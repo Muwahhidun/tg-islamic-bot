@@ -95,7 +95,10 @@ async def add_book_name(message: Message, state: FSMContext):
     if "book_id" in data:
         # Редактирование существующей книги
         book_id = data["book_id"]
-        await update_book(book_id, name=message.text)
+        book = await get_book_by_id(book_id)
+        if book:
+            book.name = message.text
+            await update_book(book)
         await state.clear()
 
         await message.answer(
@@ -151,7 +154,10 @@ async def add_book_description(message: Message, state: FSMContext):
     if "book_id" in data:
         # Редактирование существующей книги
         book_id = data["book_id"]
-        await update_book(book_id, description=message.text)
+        book = await get_book_by_id(book_id)
+        if book:
+            book.description = message.text
+            await update_book(book)
         await state.clear()
 
         await message.answer(
@@ -290,7 +296,9 @@ async def update_book_theme(callback: CallbackQuery):
     theme_id = int(parts[4])
 
     book = await get_book_by_id(book_id)
-    await update_book(book_id, theme_id=theme_id)
+    if book:
+        book.theme_id = theme_id
+        await update_book(book)
 
     await callback.answer(f"✅ Тема книги обновлена", show_alert=True)
 
@@ -329,7 +337,9 @@ async def update_book_author(callback: CallbackQuery):
     author_id = int(parts[4])
 
     book = await get_book_by_id(book_id)
-    await update_book(book_id, author_id=author_id)
+    if book:
+        book.author_id = author_id
+        await update_book(book)
 
     await callback.answer(f"✅ Автор книги обновлен", show_alert=True)
 
@@ -348,10 +358,10 @@ async def toggle_book_status(callback: CallbackQuery):
         await callback.answer("❌ Книга не найдена", show_alert=True)
         return
 
-    new_status = not book.is_active
-    await update_book(book_id, is_active=new_status)
+    book.is_active = not book.is_active
+    await update_book(book)
 
-    status_text = "активирована" if new_status else "деактивирована"
+    status_text = "активирована" if book.is_active else "деактивирована"
     await callback.answer(f"✅ Книга {status_text}", show_alert=True)
 
     # Обновляем меню редактирования
