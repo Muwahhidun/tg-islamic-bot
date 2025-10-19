@@ -20,8 +20,8 @@ class Lesson(Base):
     __tablename__ = "lessons"
     
     id: Mapped[int] = mapped_column(Integer, primary_key=True)
-    book_id: Mapped[int] = mapped_column(Integer, ForeignKey("books.id", ondelete="CASCADE"), index=True)
-    teacher_id: Mapped[int] = mapped_column(Integer, ForeignKey("lesson_teachers.id"), index=True)
+    book_id: Mapped[int | None] = mapped_column(Integer, ForeignKey("books.id", ondelete="SET NULL"), nullable=True, index=True)
+    teacher_id: Mapped[int | None] = mapped_column(Integer, ForeignKey("lesson_teachers.id", ondelete="SET NULL"), nullable=True, index=True)
     title: Mapped[str] = mapped_column(String(255), nullable=False)
     description: Mapped[str] = mapped_column(Text, nullable=True)
     audio_path: Mapped[str] = mapped_column(String(500), nullable=True)
@@ -33,8 +33,8 @@ class Lesson(Base):
     updated_at: Mapped[datetime] = mapped_column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
     
     # Отношения
-    book: Mapped["Book"] = relationship(back_populates="lessons")
-    teacher: Mapped["LessonTeacher"] = relationship(back_populates="lessons")
+    book: Mapped["Book | None"] = relationship(back_populates="lessons")
+    teacher: Mapped["LessonTeacher | None"] = relationship(back_populates="lessons")
     
     def __repr__(self) -> str:
         return f"<Lesson(id={self.id}, title='{self.title}')>"

@@ -387,7 +387,7 @@ async def delete_book_confirm(callback: CallbackQuery):
 
     if lessons_count > 0:
         warning_text += f"<b>Внимание!</b> У этой книги есть {lessons_count} урок(ов).\n"
-        warning_text += "Все уроки будут удалены вместе с книгой!\n\n"
+        warning_text += "Уроки останутся в системе, но будут отвязаны от книги.\n\n"
 
     warning_text += "Это действие нельзя отменить!"
 
