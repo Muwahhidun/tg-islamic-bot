@@ -73,59 +73,112 @@ python init_data.py  # Populate test data
 
 ```
 bot/
-├── handlers/          # Telegram command handlers (user.py, admin.py)
-├── keyboards/         # Inline and reply keyboards
-├── models/           # SQLAlchemy models (database.py, user.py, theme.py, book.py, lesson.py, etc.)
-├── services/         # Business logic (database_service.py)
-├── utils/            # Config, decorators, audio utilities
-└── main.py           # Entry point - registers routers and starts polling
+├── handlers/
+│   ├── admin/           # Admin handlers (modular: themes.py, authors.py, books.py, etc.)
+│   │   └── __init__.py  # Includes all admin sub-routers
+│   └── user/            # User handlers (modular: themes.py, lessons.py, search.py)
+│       └── __init__.py  # Includes all user sub-routers
+├── keyboards/           # Inline and reply keyboards (user.py)
+├── models/              # SQLAlchemy models
+│   ├── database.py      # Base, engine, async_session_maker
+│   ├── user.py, role.py
+│   ├── theme.py, book.py, lesson.py
+│   └── book_author.py, lesson_teacher.py
+├── services/
+│   └── database_service.py  # All DB operations (UserService, ThemeService, etc.)
+├── utils/
+│   ├── config.py        # Pydantic settings from .env
+│   ├── decorators.py    # @admin_required, @moderator_required
+│   └── audio_utils.py   # Audio file handling utilities
+└── main.py              # Entry point - creates tables, registers routers, starts polling
 ```
+
+### Handler Organization
+
+**Modular structure**: Admin and user handlers are split into separate files by domain:
+- [bot/handlers/admin/__init__.py](bot/handlers/admin/__init__.py) - Main admin router that includes all sub-routers (themes, authors, books, lessons, teachers, users, stats)
+- [bot/handlers/user/__init__.py](bot/handlers/user/__init__.py) - Main user router that includes themes, lessons, search
+
+**Router registration flow**:
+1. Domain routers (e.g., `themes.router`, `books.router`) defined in their respective files
+2. Included in parent routers ([bot/handlers/admin/__init__.py](bot/handlers/admin/__init__.py), [bot/handlers/user/__init__.py](bot/handlers/user/__init__.py))
+3. Parent routers included in dispatcher in [bot/main.py](bot/main.py)
 
 ### Database Schema
 
-**Key tables**:
-- `users` → `roles` (admin/moderator/user with level-based permissions)
-- `themes` (Акыда, Сира, Фикх, Адаб)
-- `books` → `book_authors` (classical scholars)
-- `lessons` → `lesson_teachers` (modern lecturers)
+**Key models and relationships**:
+- `users` → `roles` (FK: `user.role_id`)
+- `themes` (1) → (N) `books` (FK: `book.theme_id`, **ON DELETE SET NULL**)
+- `books` (1) → (N) `lessons` (FK: `lesson.book_id`, **ON DELETE CASCADE**)
+- `book_authors` (1) → (N) `books` (FK: `book.author_id`, **ON DELETE SET NULL**)
+- `lesson_teachers` (1) → (N) `lessons` (FK: `lesson.teacher_id`, **ON DELETE SET NULL**)
 
-**Critical relationships**:
-- `books.theme_id` → `themes.id`
-- `books.author_id` → `book_authors.id`
-- `lessons.book_id` → `books.id`
-- `lessons.teacher_id` → `lesson_teachers.id`
+**IMPORTANT deletion behavior**:
+- Deleting a **theme** does NOT delete books - books get `theme_id = NULL`
+- Deleting an **author** does NOT delete books - books get `author_id = NULL`
+- Deleting a **teacher** does NOT delete lessons - lessons get `teacher_id = NULL`
+- Deleting a **book** DOES delete all its lessons (CASCADE)
 
-**Indexes**: Full-text search on lessons (Russian language), composite indexes on `(book_id, lesson_number)`, and standard indexes on foreign keys.
+**Indexes**: Full-text search on lessons (Russian language), composite indexes on `(book_id, lesson_number)`, standard indexes on all foreign keys.
 
-### SQLAlchemy Usage
+### Database Service Layer
 
-- All DB operations use **async/await** with `async_session_maker`
-- Models inherit from `Base` ([bot/models/database.py](bot/models/database.py))
-- Database URL constructed in [bot/utils/config.py](bot/utils/config.py) from environment variables
-- Tables are auto-created on startup via `create_tables()` in [bot/main.py](bot/main.py)
+All database operations go through [bot/services/database_service.py](bot/services/database_service.py):
 
-### Handler Registration
+**Service classes**:
+- `UserService` - User CRUD, get_or_create_user, update_role
+- `ThemeService` - Not explicitly defined, uses module-level functions
+- Module-level functions like `get_all_books()`, `create_book()`, `update_book()`, `delete_book()`
 
-Handlers are organized in routers:
-- [bot/handlers/user.py](bot/handlers/user.py) - User-facing commands (start, themes, lessons)
-- [bot/handlers/admin.py](bot/handlers/admin.py) - Admin/moderator commands
-
-Routers are included in the dispatcher in [bot/main.py](bot/main.py):
-```python
-dp.include_router(user.router)
-dp.include_router(admin.router)
-```
+**IMPORTANT patterns**:
+- Always use `async with async_session_maker() as session:` for DB operations
+- Use `joinedload()` for eager loading relationships to avoid DetachedInstanceError:
+  ```python
+  select(Book).options(
+      joinedload(Book.author),
+      joinedload(Book.theme),
+      joinedload(Book.lessons)
+  )
+  ```
+- Use `.unique().scalar_one_or_none()` when using joinedload to avoid duplicate rows
 
 ### Role-Based Access Control
 
-Access control decorators in [bot/utils/decorators.py](bot/utils/decorators.py):
+Decorators in [bot/utils/decorators.py](bot/utils/decorators.py):
 - `@admin_required` - Requires `role.level >= 2`
 - `@moderator_required` - Requires `role.level >= 1`
+- Helper: `is_user_admin(telegram_id)` - Returns boolean
 
-Role levels:
-- Admin (level 2) - Full system access
-- Moderator (level 1) - Manage lessons and teachers
-- User (level 0) - Browse and listen to content
+**Role levels**:
+- Admin (level 2, role_id=1) - Full system access
+- Moderator (level 1, role_id=2) - Manage lessons and teachers
+- User (level 0, role_id=3) - Browse and listen to content
+
+### FSM (Finite State Machine)
+
+Used for multi-step interactions like creating/editing entities:
+
+```python
+from aiogram.fsm.context import FSMContext
+from aiogram.fsm.state import State, StatesGroup
+
+class BookStates(StatesGroup):
+    name = State()
+    description = State()
+    theme_id = State()
+    author_id = State()
+
+# In handler:
+await state.set_state(BookStates.name)
+await state.update_data(book_id=book_id)  # Store context
+data = await state.get_data()  # Retrieve context
+await state.clear()  # Reset state
+```
+
+**Pattern for create vs. edit**:
+- Store `book_id` (or similar) in state data for editing
+- Check `if "book_id" in data:` to determine if editing or creating
+- Same message handler can serve both create and edit flows
 
 ## Configuration
 
@@ -136,7 +189,7 @@ Environment variables in `.env`:
 - `DEBUG`, `LOG_LEVEL` - Logging configuration
 - `MAX_AUDIO_SIZE_MB`, `ALLOWED_AUDIO_FORMATS` - Audio file constraints
 
-Config is loaded via pydantic-settings in [bot/utils/config.py](bot/utils/config.py).
+Config loaded via pydantic-settings in [bot/utils/config.py](bot/utils/config.py).
 
 ## Audio File Handling
 
@@ -145,12 +198,162 @@ Config is loaded via pydantic-settings in [bot/utils/config.py](bot/utils/config
 - Duration extraction uses `mutagen` library
 - Files uploaded via Telegram are downloaded to local storage and paths saved in `lessons.audio_path`
 
+## Common Development Patterns
+
+### Adding a new CRUD entity
+
+1. **Create model** in `bot/models/yourmodel.py`:
+   ```python
+   from sqlalchemy import Column, Integer, String, Text, Boolean, ForeignKey
+   from sqlalchemy.orm import relationship
+   from .database import Base
+
+   class YourModel(Base):
+       __tablename__ = "your_table"
+       id = Column(Integer, primary_key=True, index=True)
+       name = Column(String(255), nullable=False)
+       # ... other fields
+   ```
+
+2. **Add service functions** in [bot/services/database_service.py](bot/services/database_service.py):
+   ```python
+   async def get_all_yourmodels() -> List[YourModel]:
+       async with async_session_maker() as session:
+           result = await session.execute(select(YourModel))
+           return result.scalars().all()
+
+   async def create_yourmodel(name: str, ...) -> YourModel:
+       async with async_session_maker() as session:
+           obj = YourModel(name=name, ...)
+           session.add(obj)
+           await session.commit()
+           await session.refresh(obj)
+           return obj
+   ```
+
+3. **Create handlers** in `bot/handlers/admin/yourmodels.py`:
+   ```python
+   from aiogram import Router, F
+   from aiogram.types import CallbackQuery, Message
+   from bot.utils.decorators import admin_required
+
+   router = Router()
+
+   @router.callback_query(F.data == "admin_yourmodels")
+   @admin_required
+   async def admin_yourmodels(callback: CallbackQuery):
+       # List view
+       pass
+
+   @router.callback_query(F.data.startswith("edit_yourmodel_"))
+   @admin_required
+   async def edit_yourmodel_menu(callback: CallbackQuery):
+       # Edit menu
+       pass
+   ```
+
+4. **Include router** in [bot/handlers/admin/__init__.py](bot/handlers/admin/__init__.py):
+   ```python
+   from . import yourmodels
+   router.include_router(yourmodels.router)
+   ```
+
+5. **Restart bot**: `docker-compose restart bot`
+
+### Callback Query Filter Patterns
+
+```python
+# Exact match
+@router.callback_query(F.data == "admin_books")
+
+# Regex match (preferred for numeric IDs)
+@router.callback_query(F.data.regexp(r"^edit_book_\d+$"))
+
+# startswith (use with manual validation)
+@router.callback_query(F.data.startswith("edit_book_"))
+async def handler(callback: CallbackQuery):
+    # Validate inside function to avoid catching edit_book_name_, etc.
+    parts = callback.data.split("_")
+    if len(parts) != 3 or not parts[2].isdigit():
+        return  # Not our pattern, skip
+    book_id = int(parts[2])
+    # ... handler logic
+```
+
+**Handler order matters**: More specific handlers must be registered BEFORE generic ones. In files, place specific handlers (like `edit_book_name_`) BEFORE generic handlers (like `edit_book_`).
+
+### Inline Keyboard Patterns
+
+```python
+from aiogram.utils.keyboard import InlineKeyboardBuilder
+from aiogram.types import InlineKeyboardButton
+
+builder = InlineKeyboardBuilder()
+for item in items:
+    builder.add(InlineKeyboardButton(
+        text=f"✅ {item.name}" if item.is_active else f"❌ {item.name}",
+        callback_data=f"edit_item_{item.id}"
+    ))
+builder.add(InlineKeyboardButton(text="🔙 Назад", callback_data="admin_panel"))
+builder.adjust(1)  # 1 button per row
+
+await message.edit_text("Select item:", reply_markup=builder.as_markup())
+```
+
+## Debugging
+
+### Viewing Logs
+
+```bash
+# Real-time logs
+docker-compose logs -f bot
+
+# Last 50 lines
+docker-compose logs --tail=50 bot
+
+# Search logs
+docker-compose logs bot | grep "ERROR"
+```
+
+### Common Issues
+
+**"Update is not handled" with short duration (13-16ms)**:
+- These callbacks are filtered by aiogram BEFORE reaching handlers
+- Usually caused by stale inline keyboard buttons from previously edited messages
+- **Fix**: Ask user to close/reopen Telegram app to clear cache, or navigate fresh to the admin panel
+
+**DetachedInstanceError**:
+- Accessing relationships outside of session scope
+- **Fix**: Use `joinedload()` when querying:
+  ```python
+  select(Book).options(joinedload(Book.author), joinedload(Book.theme))
+  ```
+
+**Handler not triggering**:
+- Check handler order (specific before generic)
+- Check filter syntax (use `F.data.regexp(r"^pattern$")` for exact patterns)
+- Add debug logging at ERROR level to make logs stand out:
+  ```python
+  import logging
+  logger = logging.getLogger(__name__)
+  logger.error(f"✅ Handler triggered for {callback.data}")
+  ```
+
+**Database connection errors**:
+- Ensure `DB_HOST=db` (not localhost) in `.env` when running in Docker
+- Check if database container is running: `docker-compose ps`
+
 ## Testing and Development Workflow
 
 1. Make code changes in `bot/` directory
 2. Restart bot container: `docker-compose restart bot`
 3. Check logs: `docker-compose logs -f bot`
-4. Access Adminer (database UI) at http://localhost:8080 (server: db, user/db: postgres/audio_bot)
+4. Test in Telegram by sending commands to your bot
+5. Access Adminer (database UI) at http://localhost:8080
+   - Server: `db`
+   - Username: `postgres`
+   - Password: from `.env` (`DB_PASSWORD`)
+   - Database: `audio_bot`
 
 ## Initial Data
 
@@ -161,57 +364,23 @@ The project includes test data ([init_data.py](init_data.py)) with:
 - 3 books ("4 правила", "Три основа", "Жизнь пророка ﷺ")
 - 12 sample lessons with tags and numbering
 
-## Database Migrations
+**IMPORTANT**: Lesson duration is stored in **seconds** (`duration_seconds`), not minutes.
 
-This project uses Alembic for migrations:
+## Code Style and Conventions
 
-```bash
-# Initialize Alembic (already done)
-docker-compose exec bot alembic init alembic
-
-# Generate migration from model changes
-docker-compose exec bot alembic revision --autogenerate -m "description"
-
-# Apply migrations
-docker-compose exec bot alembic upgrade head
-```
-
-## Code Style
-
-- Async/await for all I/O operations
-- Type hints encouraged
+- **Async/await** for all I/O operations
+- Type hints encouraged: `async def get_user(user_id: int) -> Optional[User]:`
 - Docstrings for modules and complex functions
 - PEP 8 formatting
-- Russian language for UI messages and comments
+- **Russian language** for all UI messages, comments, and user-facing text
+- **English** for code (variable names, function names, class names)
 
-## Common Tasks
+## Key Reminders
 
-### Adding a new handler
-1. Add function to [bot/handlers/user.py](bot/handlers/user.py) or [bot/handlers/admin.py](bot/handlers/admin.py)
-2. Decorate with `@router.message()` or `@router.callback_query()`
-3. Apply role decorators if needed (`@admin_required`, `@moderator_required`)
-4. Restart bot: `docker-compose restart bot`
-
-### Adding a new model
-1. Create model class in `bot/models/` inheriting from `Base`
-2. Define columns with SQLAlchemy types
-3. Restart bot (tables auto-create on startup)
-4. For production, generate Alembic migration instead
-
-### Modifying database schema
-1. Edit model in `bot/models/`
-2. Generate migration: `docker-compose exec bot alembic revision --autogenerate -m "change description"`
-3. Review migration in `alembic/versions/`
-4. Apply: `docker-compose exec bot alembic upgrade head`
-
-## Troubleshooting
-
-**Bot not starting**: Check logs with `docker-compose logs bot`. Common issues:
-- Missing `BOT_TOKEN` in `.env`
-- Database connection failure (check `DB_*` variables)
-
-**Database connection errors**: Ensure `DB_HOST=db` (not localhost) in `.env` when running in Docker.
-
-**Permission denied on audio files**: Run `chmod 755 bot/audio_files` on host.
-
-**Test data not loading**: Run `python init_data.py` after containers are up, or use `./run.sh` which handles this automatically.
+1. **Always eager load relationships** with `joinedload()` to avoid DetachedInstanceError
+2. **Check handler order** - specific patterns before generic patterns
+3. **Use database_service.py** for all DB operations - don't write raw SQL in handlers
+4. **Test with docker-compose restart bot** after every code change
+5. **Deletion cascades**: Only books → lessons cascade. Themes/authors/teachers use SET NULL
+6. **Dual-purpose handlers**: Use FSM state data to differentiate create vs. edit flows
+7. **Debug unhandled callbacks**: Short duration (13-16ms) indicates aiogram filtering before handlers - likely stale Telegram cache

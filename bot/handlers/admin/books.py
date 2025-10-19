@@ -414,26 +414,11 @@ async def delete_book_confirmed(callback: CallbackQuery):
 
 
 # ВАЖНО: Этот обработчик должен быть ПОСЛЕДНИМ среди всех edit_book_* обработчиков
-# Переделываем на startswith и проверяем внутри функции
-@router.callback_query(F.data.startswith("edit_book_"))
+@router.callback_query(F.data.regexp(r"^edit_book_\d+$"))
+@admin_required
 async def edit_book_menu(callback: CallbackQuery):
     """Показать меню редактирования книги"""
-    import logging
-    logger = logging.getLogger(__name__)
-
-    # Проверяем, что это именно edit_book_<id>, а не edit_book_name_ и т.д.
-    parts = callback.data.split("_")
-    if len(parts) != 3:
-        logger.info(f"Skipping {callback.data} - not edit_book_id format")
-        return
-
-    if not parts[2].isdigit():
-        logger.info(f"Skipping {callback.data} - third part is not digit")
-        return
-
-    logger.error(f"✅ edit_book_menu TRIGGERED for {callback.data}!")
-
-    book_id = int(parts[2])
+    book_id = int(callback.data.split("_")[2])
     book = await get_book_by_id(book_id)
 
     if not book:
