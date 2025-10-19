@@ -8,6 +8,7 @@ from sqlalchemy import String, Text, Integer, Boolean, DateTime
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
 from bot.models.database import Base
+from bot.utils.timezone_utils import get_moscow_now
 
 if TYPE_CHECKING:
     from bot.models.book import Book
@@ -24,8 +25,8 @@ class BookAuthor(Base):
     birth_year: Mapped[int] = mapped_column(Integer, nullable=True)
     death_year: Mapped[int] = mapped_column(Integer, nullable=True)
     is_active: Mapped[bool] = mapped_column(Boolean, default=True, index=True)
-    created_at: Mapped[datetime] = mapped_column(DateTime, default=datetime.utcnow)
-    updated_at: Mapped[datetime] = mapped_column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
+    created_at: Mapped[datetime] = mapped_column(DateTime, default=get_moscow_now)
+    updated_at: Mapped[datetime] = mapped_column(DateTime, default=get_moscow_now, onupdate=get_moscow_now)
     
     # Отношения
     books: Mapped[list["Book"]] = relationship(back_populates="author")

@@ -343,7 +343,7 @@ async def edit_book_theme_start(callback: CallbackQuery, state: FSMContext):
 @router.callback_query(F.data.regexp(r"^update_book_theme_\d+_\d+$"))
 @admin_required
 async def update_book_theme(callback: CallbackQuery):
-    """Обновить тему книги"""
+    """Обновить тему книги и всех её уроков"""
     parts = callback.data.split("_")
     book_id = int(parts[3])
     theme_id = int(parts[4])
@@ -353,7 +353,13 @@ async def update_book_theme(callback: CallbackQuery):
         book.theme_id = theme_id
         await update_book(book)
 
-    await callback.answer(f"✅ Тема книги обновлена", show_alert=True)
+        # Автоматически обновить все уроки этой книги во всех сериях
+        from bot.services.database_service import bulk_update_book_lessons
+        updated_count = await bulk_update_book_lessons(book_id, theme_id=theme_id)
+
+        await callback.answer(f"✅ Тема книги обновлена (обновлено уроков: {updated_count})", show_alert=True)
+    else:
+        await callback.answer("❌ Книга не найдена", show_alert=True)
 
     # Возвращаемся в меню редактирования книги
     await edit_book_menu(callback)
@@ -517,14 +523,3 @@ async def edit_book_menu(callback: CallbackQuery):
 
     await callback.message.edit_text(text, reply_markup=builder.as_markup())
     await callback.answer()
-
-
-# ВРЕМЕННЫЙ ОТЛАДОЧНЫЙ ОБРАБОТЧИК - ловит все необработанные callback
-# БЕЗ @admin_required чтобы точно сработал
-@router.callback_query(F.data.startswith("edit_"))
-async def debug_unhandled_callback(callback: CallbackQuery):
-    """Временный обработчик для отладки необработанных callback"""
-    import logging
-    logger = logging.getLogger(__name__)
-    logger.error(f"DEBUG CATCH-ALL: callback_data = {callback.data}")
-    await callback.answer(f"DEBUG: {callback.data}", show_alert=True)

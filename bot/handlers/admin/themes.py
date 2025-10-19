@@ -375,7 +375,7 @@ async def back_to_admin_panel(callback: CallbackQuery):
 
     builder.add(InlineKeyboardButton(text="📚 Управление темами", callback_data="admin_themes"))
     builder.add(InlineKeyboardButton(text="✍️ Управление авторами", callback_data="admin_authors"))
-    builder.add(InlineKeyboardButton(text="👨‍🏫 Управление преподавателями", callback_data="admin_teachers"))
+    builder.add(InlineKeyboardButton(text="👤 Управление преподавателями", callback_data="admin_teachers"))
     builder.add(InlineKeyboardButton(text="📖 Управление книгами", callback_data="admin_books"))
     builder.add(InlineKeyboardButton(text="🎧 Управление уроками", callback_data="admin_lessons"))
     builder.add(InlineKeyboardButton(text="👥 Управление пользователями", callback_data="admin_users"))

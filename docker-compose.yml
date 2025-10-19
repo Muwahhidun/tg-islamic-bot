@@ -5,6 +5,8 @@ services:
     build: .
     container_name: audio_bot
     restart: unless-stopped
+    environment:
+      TZ: Europe/Moscow
     env_file:
       - .env
     volumes:
@@ -25,6 +27,9 @@ services:
       POSTGRES_DB: ${DB_NAME}
       POSTGRES_USER: ${DB_USER}
       POSTGRES_PASSWORD: ${DB_PASSWORD}
+      POSTGRES_INITDB_ARGS: "--encoding=UTF8 --locale=ru_RU.UTF-8"
+      TZ: Europe/Moscow
+      PGTZ: Europe/Moscow
     volumes:
       - postgres_data:/var/lib/postgresql/data
       - ./docker/init.sql:/docker-entrypoint-initdb.d/init.sql
@@ -43,6 +48,24 @@ services:
       - bot_network
     depends_on:
       - db
+
+  web-converter:
+    build:
+      context: .
+      dockerfile: web-converter/Dockerfile
+    container_name: audio_converter
+    restart: unless-stopped
+    environment:
+      TZ: Europe/Moscow
+    env_file:
+      - .env
+    ports:
+      - "1992:1992"
+    volumes:
+      - ./bot/utils:/app/bot/utils                    # переиспользуем FFmpeg утилиты
+      - ./web-converter:/app/web-converter            # монтируем код веб-сервиса
+    networks:
+      - bot_network
 
 volumes:
   postgres_data:

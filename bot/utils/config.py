@@ -40,19 +40,24 @@ class Settings(BaseSettings):
     log_level: str = Field("INFO", env="LOG_LEVEL")
     
     # File Configuration
-    max_audio_size_mb: int = Field(50, env="MAX_AUDIO_SIZE_MB")
-    allowed_audio_formats: str = Field("mp3,wav,ogg,m4a", env="ALLOWED_AUDIO_FORMATS")
-    
+    max_audio_size_mb: int = Field(20, env="MAX_AUDIO_SIZE_MB")  # 20 МБ - лимит Telegram Bot API для getFile
+    allowed_audio_formats: str = Field("mp3,wav,ogg,m4a,flac,aac,wma", env="ALLOWED_AUDIO_FORMATS")
+
     @property
     def allowed_audio_formats_list(self) -> List[str]:
         """Получение списка разрешенных аудиоформатов"""
         return [format.strip() for format in self.allowed_audio_formats.split(",")]
-    
+
     @property
     def max_audio_size_bytes(self) -> int:
         """Получение максимального размера аудиофайла в байтах"""
         return self.max_audio_size_mb * 1024 * 1024
-    
+
+    # Web Converter Configuration
+    web_converter_url: str = Field("http://localhost:1992", env="WEB_CONVERTER_URL")
+    web_converter_login: str = Field("admin", env="WEB_CONVERTER_LOGIN")
+    web_converter_password: str = Field("admin", env="WEB_CONVERTER_PASSWORD")
+
     # Paths
     audio_files_path: str = "bot/audio_files"
     

@@ -44,7 +44,7 @@ async def admin_stats(callback: CallbackQuery):
         "📊 <b>Статистика бота</b>\n\n"
         f"📚 Темы: {active_themes}/{len(themes)}\n"
         f"✍️ Авторы: {active_authors}/{len(authors)}\n"
-        f"👨‍🏫 Преподаватели: {active_teachers}/{len(teachers)}\n"
+        f"👤 Преподаватели: {active_teachers}/{len(teachers)}\n"
         f"📖 Книги: {active_books}/{len(books)}\n"
         f"🎧 Уроки: {active_lessons}/{len(lessons)}\n"
         f"⏱️ Общая длительность: {duration_text}\n\n"

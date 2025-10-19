@@ -8,6 +8,7 @@ from sqlalchemy import Integer, String, Text, DateTime
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
 from bot.models.database import Base
+from bot.utils.timezone_utils import get_moscow_now
 
 if TYPE_CHECKING:
     from bot.models.user import User
@@ -22,7 +23,7 @@ class Role(Base):
     name: Mapped[str] = mapped_column(String(50), unique=True, nullable=False)
     description: Mapped[str] = mapped_column(Text, nullable=True)
     level: Mapped[int] = mapped_column(Integer, nullable=False, default=0)
-    created_at: Mapped[datetime] = mapped_column(DateTime, default=datetime.utcnow)
+    created_at: Mapped[datetime] = mapped_column(DateTime, default=get_moscow_now)
     
     # Отношения
     users: Mapped[list["User"]] = relationship(back_populates="role")

@@ -8,9 +8,11 @@ from sqlalchemy import BigInteger, String, Boolean, DateTime, Integer, ForeignKe
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
 from bot.models.database import Base
+from bot.utils.timezone_utils import get_moscow_now
 
 if TYPE_CHECKING:
     from bot.models.role import Role
+    from bot.models.test_attempt import TestAttempt
 
 
 class User(Base):
@@ -25,11 +27,12 @@ class User(Base):
     last_name: Mapped[str] = mapped_column(String(255), nullable=True)
     role_id: Mapped[int] = mapped_column(Integer, ForeignKey("roles.id"), default=3)
     is_active: Mapped[bool] = mapped_column(Boolean, default=True)
-    created_at: Mapped[datetime] = mapped_column(DateTime, default=datetime.utcnow)
-    updated_at: Mapped[datetime] = mapped_column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
+    created_at: Mapped[datetime] = mapped_column(DateTime, default=get_moscow_now)
+    updated_at: Mapped[datetime] = mapped_column(DateTime, default=get_moscow_now, onupdate=get_moscow_now)
     
     # Отношения
     role: Mapped["Role"] = relationship(back_populates="users")
+    test_attempts: Mapped[list["TestAttempt"]] = relationship(back_populates="user", cascade="all, delete-orphan")
     
     def __repr__(self) -> str:
         return f"<User(id={self.id}, telegram_id={self.telegram_id}, username='{self.username}')>"

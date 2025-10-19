@@ -48,7 +48,7 @@ async def admin_teachers(callback: CallbackQuery):
     builder.adjust(1)
 
     await callback.message.edit_text(
-        "👨‍🏫 <b>Управление преподавателями</b>\n\n"
+        "👤 <b>Управление преподавателями</b>\n\n"
         "Выберите преподавателя для редактирования или добавьте нового:",
         reply_markup=builder.as_markup()
     )
@@ -91,7 +91,7 @@ async def edit_teacher_menu(callback: CallbackQuery):
     builder.adjust(1)
 
     await callback.message.edit_text(
-        f"👨‍🏫 <b>Редактирование преподавателя</b>\n\n"
+        f"👤 <b>Редактирование преподавателя</b>\n\n"
         f"Имя: {teacher.name}\n"
         f"Биография: {teacher.biography or 'Нет биографии'}\n"
         f"Статус: {status}",
@@ -129,7 +129,7 @@ async def toggle_teacher(callback: CallbackQuery):
     builder.adjust(1)
 
     await callback.message.edit_text(
-        f"👨‍🏫 <b>Редактирование преподавателя</b>\n\n"
+        f"👤 <b>Редактирование преподавателя</b>\n\n"
         f"Имя: {teacher.name}\n"
         f"Биография: {teacher.biography or 'Нет биографии'}\n"
         f"Статус: {status_text}",

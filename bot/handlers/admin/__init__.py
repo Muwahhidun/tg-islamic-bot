@@ -7,9 +7,10 @@ from aiogram.types import Message, CallbackQuery, InlineKeyboardButton, InlineKe
 from aiogram.utils.keyboard import InlineKeyboardBuilder
 
 from bot.utils.decorators import admin_required
+from bot.utils.config import config
 
 # Импорт роутеров из модулей
-from . import themes, authors, teachers, teachers_series, books, lessons, users, stats
+from . import themes, authors, teachers, teachers_series, books, lessons, users, stats, series, tests
 
 # Главный роутер для админ-панели
 router = Router()
@@ -23,6 +24,8 @@ router.include_router(books.router)
 router.include_router(lessons.router)
 router.include_router(users.router)
 router.include_router(stats.router)
+router.include_router(series.router)
+router.include_router(tests.router)
 
 
 @router.message(Command("admin"))
@@ -33,9 +36,11 @@ async def admin_panel(message: Message):
 
     builder.add(InlineKeyboardButton(text="📚 Управление темами", callback_data="admin_themes"))
     builder.add(InlineKeyboardButton(text="✍️ Управление авторами", callback_data="admin_authors"))
-    builder.add(InlineKeyboardButton(text="👨‍🏫 Управление преподавателями", callback_data="admin_teachers"))
     builder.add(InlineKeyboardButton(text="📖 Управление книгами", callback_data="admin_books"))
+    builder.add(InlineKeyboardButton(text="👤 Управление преподавателями", callback_data="admin_teachers"))
+    builder.add(InlineKeyboardButton(text="📑 Управление сериями", callback_data="admin_series"))
     builder.add(InlineKeyboardButton(text="🎧 Управление уроками", callback_data="admin_lessons"))
+    builder.add(InlineKeyboardButton(text="📝 Управление тестами", callback_data="admin_tests"))
     builder.add(InlineKeyboardButton(text="👥 Управление пользователями", callback_data="admin_users"))
     builder.add(InlineKeyboardButton(text="📊 Статистика", callback_data="admin_stats"))
     builder.add(InlineKeyboardButton(text="❓ Справка", callback_data="admin_help"))
@@ -93,14 +98,23 @@ async def admin_help(callback: CallbackQuery):
 🔟 Аудиофайл
 
 <b>📁 Требования к аудиофайлам:</b>
-✅ Форматы: MP3, M4A, OGG
-✅ Размер: до 20 МБ
-❌ Не поддерживаются: WAV, FLAC, WMA
+✅ Форматы: MP3, WAV, FLAC, M4A, OGG, AAC, WMA
+✅ Размер: до 20 МБ (лимит Telegram Bot API)
+⚡ Автоконвертация: Любой формат → MP3
+⚡ Нормализация громкости: Автоматически
+
+<b>🌐 Веб-конвертер для больших файлов (до 2 ГБ):</b>
+🔗 URL: {web_url}
+👤 Логин: <code>{web_login}</code>
+🔐 Пароль: <code>{web_pass}</code>
+
+Используйте веб-конвертер если файл больше 20 МБ.
+После конвертации скачайте MP3 и отправьте боту.
 
 <b>💡 Рекомендации:</b>
-• Используйте MP3 (320kbps или 128kbps)
-• M4A даёт лучшее сжатие
-• Сжимайте большие файлы до 20 МБ
+• Используйте MP3 64kbps для длинных уроков
+• Уроки до 40 минут отлично влезают в 20 МБ
+• Веб-конвертер автоматически подбирает битрейт
 
 <b>🔄 Серии уроков:</b>
 Один преподаватель может записать несколько
@@ -121,7 +135,11 @@ async def admin_help(callback: CallbackQuery):
 """
 
     await callback.message.edit_text(
-        help_text,
+        help_text.format(
+            web_url=config.web_converter_url,
+            web_login=config.web_converter_login,
+            web_pass=config.web_converter_password
+        ),
         reply_markup=InlineKeyboardMarkup(inline_keyboard=[[
             InlineKeyboardButton(text="🔙 Назад в админ-панель", callback_data="admin_panel")
         ]])
@@ -137,9 +155,11 @@ async def admin_panel_callback(callback: CallbackQuery):
 
     builder.add(InlineKeyboardButton(text="📚 Управление темами", callback_data="admin_themes"))
     builder.add(InlineKeyboardButton(text="✍️ Управление авторами", callback_data="admin_authors"))
-    builder.add(InlineKeyboardButton(text="👨‍🏫 Управление преподавателями", callback_data="admin_teachers"))
     builder.add(InlineKeyboardButton(text="📖 Управление книгами", callback_data="admin_books"))
+    builder.add(InlineKeyboardButton(text="👤 Управление преподавателями", callback_data="admin_teachers"))
+    builder.add(InlineKeyboardButton(text="📑 Управление сериями", callback_data="admin_series"))
     builder.add(InlineKeyboardButton(text="🎧 Управление уроками", callback_data="admin_lessons"))
+    builder.add(InlineKeyboardButton(text="📝 Управление тестами", callback_data="admin_tests"))
     builder.add(InlineKeyboardButton(text="👥 Управление пользователями", callback_data="admin_users"))
     builder.add(InlineKeyboardButton(text="📊 Статистика", callback_data="admin_stats"))
     builder.add(InlineKeyboardButton(text="❓ Справка", callback_data="admin_help"))

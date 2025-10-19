@@ -8,7 +8,7 @@ from sqlalchemy.orm import joinedload
 
 from bot.models import (
     User, Role, Theme, BookAuthor, LessonTeacher,
-    Book, Lesson, async_session_maker
+    Book, Lesson, LessonSeries, async_session_maker
 )
 
 
@@ -353,7 +353,12 @@ class LessonService(DatabaseService):
         async with async_session_maker() as session:
             result = await session.execute(
                 select(Lesson)
-                .options(joinedload(Lesson.teacher), joinedload(Lesson.book).joinedload(Book.author))
+                .options(
+                    joinedload(Lesson.teacher),
+                    joinedload(Lesson.book).joinedload(Book.author),
+                    joinedload(Lesson.book).joinedload(Book.theme),
+                    joinedload(Lesson.theme)
+                )
                 .where(Lesson.id == lesson_id)
             )
             return result.scalar_one_or_none()
@@ -639,9 +644,10 @@ async def create_lesson(
     series_name: str,
     description: str = None,
     audio_file_path: str = None,
-    duration_minutes: int = None,
+    duration_seconds: int = None,
     lesson_number: int = None,
     book_id: int = None,
+    theme_id: int = None,
     teacher_id: int = None,
     tags: str = None,
     is_active: bool = True
@@ -654,9 +660,10 @@ async def create_lesson(
             series_year=series_year,
             series_name=series_name,
             audio_path=audio_file_path,
-            duration_seconds=duration_minutes * 60 if duration_minutes else None,
+            duration_seconds=duration_seconds,
             lesson_number=lesson_number,
             book_id=book_id,
+            theme_id=theme_id,
             teacher_id=teacher_id,
             tags=tags,
             is_active=is_active
@@ -683,3 +690,148 @@ async def delete_lesson(lesson_id: int) -> bool:
         )
         await session.commit()
         return result.rowcount > 0
+
+
+# ===============================
+# Lesson Series Operations
+# ===============================
+
+async def get_all_lesson_series() -> List[LessonSeries]:
+    """Получение всех серий уроков"""
+    async with async_session_maker() as session:
+        result = await session.execute(
+            select(LessonSeries)
+            .options(
+                joinedload(LessonSeries.teacher),
+                joinedload(LessonSeries.book),
+                joinedload(LessonSeries.theme)
+            )
+            .order_by(LessonSeries.year.desc(), LessonSeries.name)
+        )
+        return result.scalars().unique().all()
+
+
+async def get_series_by_teacher(teacher_id: int) -> List[LessonSeries]:
+    """Получение всех серий преподавателя"""
+    async with async_session_maker() as session:
+        result = await session.execute(
+            select(LessonSeries)
+            .options(
+                joinedload(LessonSeries.teacher),
+                joinedload(LessonSeries.book),
+                joinedload(LessonSeries.theme),
+                joinedload(LessonSeries.lessons)
+            )
+            .where(LessonSeries.teacher_id == teacher_id)
+            .order_by(LessonSeries.year.desc(), LessonSeries.name)
+        )
+        return result.scalars().unique().all()
+
+
+async def get_series_by_id(series_id: int) -> Optional[LessonSeries]:
+    """Получение серии по ID"""
+    async with async_session_maker() as session:
+        result = await session.execute(
+            select(LessonSeries)
+            .options(
+                joinedload(LessonSeries.teacher),
+                joinedload(LessonSeries.book).joinedload(Book.theme),
+                joinedload(LessonSeries.theme),
+                joinedload(LessonSeries.lessons)
+            )
+            .where(LessonSeries.id == series_id)
+        )
+        return result.unique().scalar_one_or_none()
+
+
+async def create_lesson_series(
+    name: str,
+    year: int,
+    teacher_id: int,
+    description: Optional[str] = None,
+    book_id: Optional[int] = None,
+    theme_id: Optional[int] = None,
+    is_completed: bool = False,
+    order: int = 0,
+    is_active: bool = True
+) -> LessonSeries:
+    """Создание новой серии уроков"""
+    async with async_session_maker() as session:
+        series = LessonSeries(
+            name=name,
+            year=year,
+            teacher_id=teacher_id,
+            description=description,
+            book_id=book_id,
+            theme_id=theme_id,
+            is_completed=is_completed,
+            order=order,
+            is_active=is_active
+        )
+        session.add(series)
+        await session.commit()
+        await session.refresh(series)
+        return series
+
+
+async def update_lesson_series(series: LessonSeries) -> LessonSeries:
+    """Обновление серии уроков"""
+    async with async_session_maker() as session:
+        await session.merge(series)
+        await session.commit()
+        return series
+
+
+async def delete_lesson_series(series_id: int) -> bool:
+    """Удаление серии уроков"""
+    async with async_session_maker() as session:
+        result = await session.execute(
+            delete(LessonSeries).where(LessonSeries.id == series_id)
+        )
+        await session.commit()
+        return result.rowcount > 0
+
+
+async def bulk_update_series_lessons(series_id: int, book_id: Optional[int] = None, theme_id: Optional[int] = None) -> int:
+    """
+    Массовое обновление уроков серии
+    Обновляет book_id и/или theme_id для всех уроков серии
+    Возвращает количество обновлённых уроков
+    """
+    async with async_session_maker() as session:
+        # Формируем values для обновления
+        values = {}
+        if book_id is not None:
+            values['book_id'] = book_id
+        if theme_id is not None:
+            values['theme_id'] = theme_id
+
+        if not values:
+            return 0
+
+        result = await session.execute(
+            update(Lesson)
+            .where(Lesson.series_id == series_id)
+            .values(**values)
+        )
+        await session.commit()
+        return result.rowcount
+
+
+async def bulk_update_book_lessons(book_id: int, theme_id: Optional[int] = None) -> int:
+    """
+    Массовое обновление уроков книги во ВСЕХ сериях
+    Обновляет theme_id для всех уроков этой книги
+    Возвращает количество обновлённых уроков
+    """
+    async with async_session_maker() as session:
+        if theme_id is None:
+            return 0
+
+        result = await session.execute(
+            update(Lesson)
+            .where(Lesson.book_id == book_id)
+            .values(theme_id=theme_id)
+        )
+        await session.commit()
+        return result.rowcount

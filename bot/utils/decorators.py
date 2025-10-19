@@ -45,6 +45,7 @@ def admin_required(func: Callable) -> Callable:
         logger = logging.getLogger(__name__)
 
         # Проверяем по ID администратора из конфига (если задан)
+        config_admin_granted = False
         try:
             if config.admin_telegram_id:
                 admin_id = int(config.admin_telegram_id)
@@ -52,10 +53,14 @@ def admin_required(func: Callable) -> Callable:
 
                 if user_id == admin_id:
                     logger.info(f"Access granted by config admin ID")
-                    return await func(*args, **kwargs)
+                    config_admin_granted = True
         except (ValueError, TypeError) as e:
             logger.warning(f"Invalid ADMIN_TELEGRAM_ID in config: {config.admin_telegram_id}, error: {e}")
-        
+
+        # Если доступ уже получен по конфигу, не проверяем БД
+        if config_admin_granted:
+            return await func(*args, **kwargs)
+
         # Проверяем по роли в базе данных
         user = await get_user_with_role(user_id)
         
