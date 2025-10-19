@@ -156,7 +156,7 @@ async def add_book_description(message: Message, state: FSMContext):
         book_id = data["book_id"]
         book = await get_book_by_id(book_id)
         if book:
-            book.description = message.text
+            book.desc = message.text
             await update_book(book)
         await state.clear()
 
@@ -168,7 +168,7 @@ async def add_book_description(message: Message, state: FSMContext):
         )
     else:
         # Создание новой книги
-        await state.update_data(description=message.text)
+        await state.update_data(desc=message.text)
 
         # Получаем список тем
         themes = await get_all_themes()
@@ -176,6 +176,9 @@ async def add_book_description(message: Message, state: FSMContext):
         builder = InlineKeyboardBuilder()
         for theme in themes:
             builder.add(InlineKeyboardButton(text=theme.name, callback_data=f"select_theme_{theme.id}"))
+        builder.add(InlineKeyboardButton(text="⏭️ Пропустить", callback_data="skip_book_theme"))
+        builder.add(InlineKeyboardButton(text="🔙 Отмена", callback_data="admin_books"))
+        builder.adjust(1)  # По одной кнопке в строке
 
         await message.answer(
             "📝 <b>Добавление новой книги</b>\n\n"
@@ -183,6 +186,31 @@ async def add_book_description(message: Message, state: FSMContext):
             reply_markup=builder.as_markup()
         )
         await state.set_state(BookStates.theme_id)
+
+
+@router.callback_query(F.data == "skip_book_theme")
+@admin_required
+async def skip_book_theme(callback: CallbackQuery, state: FSMContext):
+    """Пропустить выбор темы"""
+    await state.update_data(theme_id=None)
+
+    # Получаем список авторов
+    authors = await get_all_book_authors()
+
+    builder = InlineKeyboardBuilder()
+    for author in authors:
+        builder.add(InlineKeyboardButton(text=author.name, callback_data=f"select_author_{author.id}"))
+    builder.add(InlineKeyboardButton(text="⏭️ Пропустить", callback_data="skip_book_author"))
+    builder.add(InlineKeyboardButton(text="🔙 Отмена", callback_data="admin_books"))
+    builder.adjust(1)
+
+    await callback.message.edit_text(
+        "📝 <b>Добавление новой книги</b>\n\n"
+        "Выберите автора книги:",
+        reply_markup=builder.as_markup()
+    )
+    await state.set_state(BookStates.author_id)
+    await callback.answer()
 
 
 @router.callback_query(F.data.regexp(r"^select_theme_\d+$"))
@@ -198,6 +226,9 @@ async def select_theme_for_book(callback: CallbackQuery, state: FSMContext):
     builder = InlineKeyboardBuilder()
     for author in authors:
         builder.add(InlineKeyboardButton(text=author.name, callback_data=f"select_author_{author.id}"))
+    builder.add(InlineKeyboardButton(text="⏭️ Пропустить", callback_data="skip_book_author"))
+    builder.add(InlineKeyboardButton(text="🔙 Отмена", callback_data="admin_books"))
+    builder.adjust(1)  # По одной кнопке в строке
 
     await callback.message.edit_text(
         "📝 <b>Добавление новой книги</b>\n\n"
@@ -205,6 +236,28 @@ async def select_theme_for_book(callback: CallbackQuery, state: FSMContext):
         reply_markup=builder.as_markup()
     )
     await state.set_state(BookStates.author_id)
+    await callback.answer()
+
+
+@router.callback_query(F.data == "skip_book_author")
+@admin_required
+async def skip_book_author(callback: CallbackQuery, state: FSMContext):
+    """Пропустить выбор автора"""
+    data = await state.get_data()
+
+    book = await create_book(
+        name=data["name"],
+        desc=data.get("desc", ""),
+        theme_id=data.get("theme_id"),
+        author_id=None,
+        is_active=True
+    )
+
+    await callback.message.edit_text(
+        f"✅ Книга «{book.name}» успешно добавлена!",
+        reply_markup=InlineKeyboardMarkup(inline_keyboard=[[InlineKeyboardButton(text="🔙 К списку книг", callback_data="admin_books")]])
+    )
+    await state.clear()
     await callback.answer()
 
 
@@ -217,8 +270,8 @@ async def select_author_for_book(callback: CallbackQuery, state: FSMContext):
 
     book = await create_book(
         name=data["name"],
-        description=data.get("description", ""),
-        theme_id=data["theme_id"],
+        desc=data.get("desc", ""),
+        theme_id=data.get("theme_id"),
         author_id=author_id,
         is_active=True
     )
@@ -456,7 +509,7 @@ async def edit_book_menu(callback: CallbackQuery):
 
     text = f"📖 <b>Редактирование книги</b>\n\n"
     text += f"<b>Название:</b> {book.name}\n"
-    text += f"<b>Описание:</b> {book.description or 'Не указано'}\n"
+    text += f"<b>Описание:</b> {book.desc or 'Не указано'}\n"
     text += f"<b>Тема:</b> {theme_name}\n"
     text += f"<b>Автор:</b> {author_name}\n"
     text += f"<b>Статус:</b> {status}\n\n"

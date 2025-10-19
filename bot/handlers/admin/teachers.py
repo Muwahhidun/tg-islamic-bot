@@ -14,6 +14,8 @@ from bot.services.database_service import (
     create_lesson_teacher,
     update_lesson_teacher,
     delete_lesson_teacher,
+    get_all_lessons,
+    get_all_books,
 )
 
 router = Router()
@@ -23,6 +25,8 @@ class LessonTeacherStates(StatesGroup):
     """Состояния для управления преподавателями"""
     name = State()
     biography = State()
+    edit_series_year = State()
+    edit_series_name = State()
 
 
 @router.callback_query(F.data == "admin_teachers")
@@ -80,7 +84,9 @@ async def edit_teacher_menu(callback: CallbackQuery):
     builder = InlineKeyboardBuilder()
     builder.add(InlineKeyboardButton(text="✏️ Изменить имя", callback_data=f"edit_teacher_name_{teacher.id}"))
     builder.add(InlineKeyboardButton(text="📝 Изменить биографию", callback_data=f"edit_teacher_bio_{teacher.id}"))
+    builder.add(InlineKeyboardButton(text="📚 Управление сериями", callback_data=f"manage_teacher_series_{teacher.id}"))
     builder.add(InlineKeyboardButton(text=f"🔄 Статус: {status}", callback_data=f"toggle_teacher_{teacher.id}"))
+    builder.add(InlineKeyboardButton(text="🗑️ Удалить преподавателя", callback_data=f"delete_teacher_{teacher.id}"))
     builder.add(InlineKeyboardButton(text="🔙 Назад", callback_data="admin_teachers"))
     builder.adjust(1)
 
@@ -129,6 +135,64 @@ async def toggle_teacher(callback: CallbackQuery):
         f"Статус: {status_text}",
         reply_markup=builder.as_markup()
     )
+
+
+@router.callback_query(F.data.startswith("delete_teacher_"))
+@admin_required
+async def delete_teacher_prompt(callback: CallbackQuery):
+    """Подтверждение удаления преподавателя"""
+    teacher_id = int(callback.data.split("_")[2])
+    teacher = await get_lesson_teacher_by_id(teacher_id)
+
+    if not teacher:
+        await callback.answer("❌ Преподаватель не найден", show_alert=True)
+        return
+
+    # Подсчитываем количество уроков
+    from bot.services.database_service import get_all_lessons
+    lessons = await get_all_lessons()
+    lessons_count = len([l for l in lessons if l.teacher_id == teacher_id])
+
+    # Формируем предупреждение
+    warning_text = f"⚠️ <b>Удаление преподавателя</b>\n\n"
+    warning_text += f"Вы уверены, что хотите удалить преподавателя «{teacher.name}»?\n\n"
+
+    if lessons_count > 0:
+        warning_text += f"ℹ️ <b>У этого преподавателя есть {lessons_count} урок(ов)</b>\n"
+        warning_text += "Уроки останутся в системе, но будут отвязаны от преподавателя.\n\n"
+
+    warning_text += "Это действие нельзя отменить!"
+
+    builder = InlineKeyboardBuilder()
+    builder.add(InlineKeyboardButton(text="✅ Да, удалить", callback_data=f"confirm_delete_teacher_{teacher_id}"))
+    builder.add(InlineKeyboardButton(text="❌ Отмена", callback_data=f"edit_teacher_{teacher_id}"))
+    builder.adjust(1)
+
+    await callback.message.edit_text(warning_text, reply_markup=builder.as_markup())
+    await callback.answer()
+
+
+@router.callback_query(F.data.startswith("confirm_delete_teacher_"))
+@admin_required
+async def confirm_delete_teacher(callback: CallbackQuery):
+    """Подтвердить удаление преподавателя"""
+    teacher_id = int(callback.data.split("_")[3])
+    teacher = await get_lesson_teacher_by_id(teacher_id)
+
+    if not teacher:
+        await callback.answer("❌ Преподаватель не найден", show_alert=True)
+        return
+
+    teacher_name = teacher.name
+    await delete_lesson_teacher(teacher_id)
+
+    await callback.message.edit_text(
+        f"✅ Преподаватель «{teacher_name}» удален",
+        reply_markup=InlineKeyboardMarkup(inline_keyboard=[[
+            InlineKeyboardButton(text="🔙 К списку преподавателей", callback_data="admin_teachers")
+        ]])
+    )
+    await callback.answer()
 
 
 @router.callback_query(F.data.startswith("edit_teacher_name_"))

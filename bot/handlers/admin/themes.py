@@ -88,7 +88,7 @@ async def edit_theme_menu(callback: CallbackQuery):
     await callback.message.edit_text(
         f"📚 <b>Редактирование темы</b>\n\n"
         f"Название: {theme.name}\n"
-        f"Описание: {theme.description or 'Нет описания'}\n"
+        f"Описание: {theme.desc or 'Нет описания'}\n"
         f"Статус: {status}",
         reply_markup=builder.as_markup()
     )
@@ -126,7 +126,7 @@ async def toggle_theme(callback: CallbackQuery):
     await callback.message.edit_text(
         f"📚 <b>Редактирование темы</b>\n\n"
         f"Название: {theme.name}\n"
-        f"Описание: {theme.description or 'Нет описания'}\n"
+        f"Описание: {theme.desc or 'Нет описания'}\n"
         f"Статус: {status_text}",
         reply_markup=builder.as_markup()
     )
@@ -210,7 +210,7 @@ async def edit_theme_desc_start(callback: CallbackQuery, state: FSMContext):
 
     await callback.message.edit_text(
         f"📝 <b>Редактирование описания темы</b>\n\n"
-        f"Текущее описание: {theme.description or 'Нет описания'}\n\n"
+        f"Текущее описание: {theme.desc or 'Нет описания'}\n\n"
         f"Введите новое описание темы:",
         reply_markup=InlineKeyboardMarkup(inline_keyboard=[
             [InlineKeyboardButton(text="🗑️ Удалить описание", callback_data="skip_theme_description")],
@@ -233,7 +233,7 @@ async def skip_theme_description(callback: CallbackQuery, state: FSMContext):
         # Редактирование - удаляем описание
         theme = await get_theme_by_id(theme_id)
         if theme:
-            theme.description = ""
+            theme.desc = ""
             await update_theme(theme)
 
             await callback.message.edit_text(
@@ -251,7 +251,7 @@ async def skip_theme_description(callback: CallbackQuery, state: FSMContext):
         name = data.get("name")
         theme = await create_theme(
             name=name,
-            description="",
+            desc="",
             is_active=True
         )
 
@@ -277,7 +277,7 @@ async def edit_theme_desc_save(message: Message, state: FSMContext):
         # Редактирование существующей темы
         theme = await get_theme_by_id(theme_id)
         if theme:
-            theme.description = message.text
+            theme.desc = message.text
             await update_theme(theme)
 
             await message.answer(
@@ -295,7 +295,7 @@ async def edit_theme_desc_save(message: Message, state: FSMContext):
         name = data.get("name")
         theme = await create_theme(
             name=name,
-            description=message.text,
+            desc=message.text,
             is_active=True
         )
 

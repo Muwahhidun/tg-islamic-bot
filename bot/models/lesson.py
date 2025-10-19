@@ -2,7 +2,7 @@
 Модель уроков
 """
 from datetime import datetime
-from typing import TYPE_CHECKING
+from typing import TYPE_CHECKING, Optional
 
 from sqlalchemy import String, Text, Integer, Boolean, DateTime, ForeignKey
 from sqlalchemy.orm import Mapped, mapped_column, relationship
@@ -24,6 +24,8 @@ class Lesson(Base):
     teacher_id: Mapped[int | None] = mapped_column(Integer, ForeignKey("lesson_teachers.id", ondelete="SET NULL"), nullable=True, index=True)
     title: Mapped[str] = mapped_column(String(255), nullable=False)
     description: Mapped[str] = mapped_column(Text, nullable=True)
+    series_year: Mapped[int] = mapped_column(Integer, nullable=False, index=True)
+    series_name: Mapped[str] = mapped_column(String(255), nullable=False, index=True)
     audio_path: Mapped[str] = mapped_column(String(500), nullable=True)
     lesson_number: Mapped[int] = mapped_column(Integer, nullable=True)
     duration_seconds: Mapped[int] = mapped_column(Integer, nullable=True)
@@ -94,7 +96,25 @@ class Lesson(Base):
         if self.book and self.book.theme:
             return self.book.theme.name
         return "Тема не указана"
-    
+
+    @property
+    def theme_id(self) -> Optional[int]:
+        """Получение ID темы"""
+        if self.book and self.book.theme:
+            return self.book.theme.id
+        return None
+
+    @property
+    def series_display(self) -> str:
+        """Отображение серии"""
+        return f"{self.series_year} - {self.series_name}"
+
+    @property
+    def full_display_title(self) -> str:
+        """Полное отображаемое название с серией"""
+        lesson_part = f"Урок {self.lesson_number}: {self.title}" if self.lesson_number else self.title
+        return f"{self.series_display} | {lesson_part}"
+
     def has_audio(self) -> bool:
         """Проверка наличия аудиофайла"""
         return bool(self.audio_path)

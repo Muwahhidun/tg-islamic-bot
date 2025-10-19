@@ -162,12 +162,12 @@ class ThemeService(DatabaseService):
             return result.unique().scalar_one_or_none()
     
     @staticmethod
-    async def create_theme(name: str, description: str = None, sort_order: int = 0) -> Theme:
+    async def create_theme(name: str, desc: str = None, sort_order: int = 0) -> Theme:
         """Создание новой темы"""
         async with async_session_maker() as session:
             theme = Theme(
                 name=name,
-                description=description,
+                desc=desc,
                 sort_order=sort_order
             )
             session.add(theme)
@@ -314,7 +314,7 @@ class BookService(DatabaseService):
         theme_id: int,
         author_id: int,
         name: str,
-        description: str = None,
+        desc: str = None,
         sort_order: int = 0
     ) -> Book:
         """Создание новой книги"""
@@ -323,7 +323,7 @@ class BookService(DatabaseService):
                 theme_id=theme_id,
                 author_id=author_id,
                 name=name,
-                description=description,
+                desc=desc,
                 sort_order=sort_order
             )
             session.add(book)
@@ -363,6 +363,8 @@ class LessonService(DatabaseService):
         book_id: int,
         teacher_id: int,
         title: str,
+        series_year: int,
+        series_name: str,
         description: str = None,
         audio_path: str = None,
         lesson_number: int = None,
@@ -376,6 +378,8 @@ class LessonService(DatabaseService):
                 teacher_id=teacher_id,
                 title=title,
                 description=description,
+                series_year=series_year,
+                series_name=series_name,
                 audio_path=audio_path,
                 lesson_number=lesson_number,
                 duration_seconds=duration_seconds,
@@ -442,12 +446,12 @@ async def get_theme_by_id(theme_id: int) -> Optional[Theme]:
     return await ThemeService.get_theme_by_id(theme_id)
 
 
-async def create_theme(name: str, description: str = None, is_active: bool = True, sort_order: int = 0) -> Theme:
+async def create_theme(name: str, desc: str = None, is_active: bool = True, sort_order: int = 0) -> Theme:
     """Создание новой темы"""
     async with async_session_maker() as session:
         theme = Theme(
             name=name,
-            description=description,
+            desc=desc,
             is_active=is_active,
             sort_order=sort_order
         )
@@ -577,7 +581,7 @@ async def get_book_by_id(book_id: int) -> Optional[Book]:
 
 async def create_book(
     name: str,
-    description: str = None,
+    desc: str = None,
     theme_id: int = None,
     author_id: int = None,
     is_active: bool = True,
@@ -587,7 +591,7 @@ async def create_book(
     async with async_session_maker() as session:
         book = Book(
             name=name,
-            description=description,
+            desc=desc,
             theme_id=theme_id,
             author_id=author_id,
             is_active=is_active,
@@ -631,6 +635,8 @@ async def get_lesson_by_id(lesson_id: int) -> Optional[Lesson]:
 
 async def create_lesson(
     title: str,
+    series_year: int,
+    series_name: str,
     description: str = None,
     audio_file_path: str = None,
     duration_minutes: int = None,
@@ -645,6 +651,8 @@ async def create_lesson(
         lesson = Lesson(
             title=title,
             description=description,
+            series_year=series_year,
+            series_name=series_name,
             audio_path=audio_file_path,
             duration_seconds=duration_minutes * 60 if duration_minutes else None,
             lesson_number=lesson_number,

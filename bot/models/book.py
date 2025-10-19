@@ -24,7 +24,7 @@ class Book(Base):
     theme_id: Mapped[Optional[int]] = mapped_column(Integer, ForeignKey("themes.id", ondelete="SET NULL"), nullable=True, index=True)
     author_id: Mapped[Optional[int]] = mapped_column(Integer, ForeignKey("book_authors.id", ondelete="SET NULL"), nullable=True, index=True)
     name: Mapped[str] = mapped_column(String(255), nullable=False)
-    description: Mapped[str] = mapped_column(Text, nullable=True)
+    desc: Mapped[str] = mapped_column(Text, nullable=True)
     sort_order: Mapped[int] = mapped_column(Integer, default=0)
     is_active: Mapped[bool] = mapped_column(Boolean, default=True, index=True)
     created_at: Mapped[datetime] = mapped_column(DateTime, default=datetime.utcnow)
