@@ -7,7 +7,7 @@ from bot.services.database_service import UserService
 from bot.keyboards.user import get_main_keyboard
 from bot.utils.decorators import is_user_admin
 
-from . import themes, lessons, search
+from . import themes, lessons, search, tests
 
 # Main router
 router = Router()
@@ -16,6 +16,7 @@ router = Router()
 router.include_router(themes.router)
 router.include_router(lessons.router)
 router.include_router(search.router)
+router.include_router(tests.router)
 
 
 @router.message(Command("start"))

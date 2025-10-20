@@ -2,7 +2,7 @@ from aiogram import Router, F
 from aiogram.types import CallbackQuery
 from aiogram.fsm.context import FSMContext
 
-from bot.services.database_service import LessonService, BookService
+from bot.services.database_service import LessonService, BookService, get_test_by_series
 from bot.keyboards.user import get_lessons_keyboard, get_lesson_control_keyboard
 from bot.utils.decorators import user_required_callback
 from bot.utils.audio_utils import AudioUtils
@@ -86,8 +86,14 @@ async def play_lesson(callback: CallbackQuery):
     if lesson.description:
         caption += f"📝 Описание: {lesson.description}"
 
+    # Проверяем, есть ли тест для этой серии
+    has_test = False
+    if lesson.series_id:
+        test = await get_test_by_series(lesson.series_id)
+        has_test = test is not None and test.is_active
+
     # Клавиатура управления
-    keyboard = get_lesson_control_keyboard(lesson)
+    keyboard = get_lesson_control_keyboard(lesson, has_test=has_test)
 
     try:
         # Отправка аудиофайла

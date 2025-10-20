@@ -164,18 +164,19 @@ def get_lessons_keyboard(lessons: list[Lesson], theme_id: int = None) -> InlineK
     return InlineKeyboardMarkup(inline_keyboard=keyboard)
 
 
-def get_lesson_control_keyboard(lesson: Lesson) -> InlineKeyboardMarkup:
+def get_lesson_control_keyboard(lesson: Lesson, has_test: bool = False) -> InlineKeyboardMarkup:
     """
     Клавиатура управления воспроизведением урока
-    
+
     Args:
         lesson: Объект урока
-        
+        has_test: Есть ли тест для серии урока
+
     Returns:
         InlineKeyboardMarkup: Клавиатура управления
     """
     keyboard = []
-    
+
     # Первая строка - навигация
     nav_buttons = []
     nav_buttons.append(InlineKeyboardButton(
@@ -187,7 +188,7 @@ def get_lesson_control_keyboard(lesson: Lesson) -> InlineKeyboardMarkup:
         callback_data=f"next_{lesson.id}"
     ))
     keyboard.append(nav_buttons)
-    
+
     # Вторая строка - информация
     info_buttons = []
     if lesson.book and lesson.book.author:
@@ -202,13 +203,20 @@ def get_lesson_control_keyboard(lesson: Lesson) -> InlineKeyboardMarkup:
         ))
     if info_buttons:
         keyboard.append(info_buttons)
-    
-    # Третья строка - возврат
+
+    # Кнопка теста (если есть)
+    if has_test:
+        keyboard.append([InlineKeyboardButton(
+            text="📝 Пройти тест",
+            callback_data=f"test_after_lesson_{lesson.id}"
+        )])
+
+    # Последняя строка - возврат
     keyboard.append([InlineKeyboardButton(
         text="⬅️ К книге",
         callback_data=f"back_to_book_{lesson.book_id}"
     )])
-    
+
     return InlineKeyboardMarkup(inline_keyboard=keyboard)
 
 

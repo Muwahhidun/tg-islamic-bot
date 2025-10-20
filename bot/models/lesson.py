@@ -53,7 +53,6 @@ class Lesson(Base):
     book: Mapped["Book | None"] = relationship(back_populates="lessons")
     teacher: Mapped["LessonTeacher | None"] = relationship(back_populates="lessons")
     theme: Mapped["Theme | None"] = relationship("Theme", foreign_keys=[theme_id])
-    tests: Mapped[list["Test"]] = relationship(back_populates="lesson", foreign_keys="[Test.lesson_id]")
     
     def __repr__(self) -> str:
         return f"<Lesson(id={self.id}, title='{self.title}')>"

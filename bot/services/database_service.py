@@ -8,7 +8,8 @@ from sqlalchemy.orm import joinedload
 
 from bot.models import (
     User, Role, Theme, BookAuthor, LessonTeacher,
-    Book, Lesson, LessonSeries, async_session_maker
+    Book, Lesson, LessonSeries, async_session_maker,
+    Test, TestQuestion, TestAttempt
 )
 
 
@@ -908,3 +909,345 @@ async def bulk_update_book_lessons(book_id: int, theme_id: Optional[int] = None)
         )
         await session.commit()
         return result.rowcount
+
+
+# ==================== ТЕСТЫ ====================
+
+async def get_all_tests() -> List[Test]:
+    """Получить все тесты"""
+    async with async_session_maker() as session:
+        result = await session.execute(
+            select(Test)
+            .options(
+                joinedload(Test.teacher),
+                joinedload(Test.series),
+                joinedload(Test.questions)
+            )
+            .order_by(Test.created_at.desc())
+        )
+        return list(result.scalars().unique().all())
+
+
+async def get_test_by_id(test_id: int) -> Optional[Test]:
+    """Получить тест по ID"""
+    async with async_session_maker() as session:
+        result = await session.execute(
+            select(Test)
+            .options(
+                joinedload(Test.teacher),
+                joinedload(Test.series),
+                joinedload(Test.questions).joinedload(TestQuestion.lesson)
+            )
+            .where(Test.id == test_id)
+        )
+        return result.unique().scalar_one_or_none()
+
+
+async def get_test_by_series(series_id: int) -> Optional[Test]:
+    """Получить тест по серии (один тест на серию)"""
+    async with async_session_maker() as session:
+        result = await session.execute(
+            select(Test)
+            .options(
+                joinedload(Test.teacher),
+                joinedload(Test.series),
+                joinedload(Test.questions).joinedload(TestQuestion.lesson)
+            )
+            .where(Test.series_id == series_id)
+        )
+        return result.unique().scalar_one_or_none()
+
+
+async def get_tests_by_teacher(teacher_id: int) -> List[Test]:
+    """Получить все тесты преподавателя"""
+    async with async_session_maker() as session:
+        result = await session.execute(
+            select(Test)
+            .options(
+                joinedload(Test.teacher),
+                joinedload(Test.series),
+                joinedload(Test.questions)
+            )
+            .where(Test.teacher_id == teacher_id)
+            .order_by(Test.created_at.desc())
+        )
+        return list(result.scalars().unique().all())
+
+
+async def create_test(
+    title: str,
+    series_id: int,
+    teacher_id: int,
+    description: Optional[str] = None,
+    passing_score: int = 80,
+    time_per_question_seconds: int = 30,
+    order: int = 0
+) -> Test:
+    """Создать новый тест (один тест на серию)"""
+    async with async_session_maker() as session:
+        test = Test(
+            title=title,
+            series_id=series_id,
+            teacher_id=teacher_id,
+            description=description,
+            passing_score=passing_score,
+            time_per_question_seconds=time_per_question_seconds,
+            order=order,
+            questions_count=0
+        )
+        session.add(test)
+        await session.commit()
+        await session.refresh(test)
+        return test
+
+
+async def update_test(test: Test) -> Test:
+    """Обновить тест"""
+    async with async_session_maker() as session:
+        await session.merge(test)
+        await session.commit()
+        return test
+
+
+async def delete_test(test_id: int) -> bool:
+    """Удалить тест"""
+    async with async_session_maker() as session:
+        result = await session.execute(
+            delete(Test).where(Test.id == test_id)
+        )
+        await session.commit()
+        return result.rowcount > 0
+
+
+async def toggle_test_active(test_id: int) -> Optional[Test]:
+    """Переключить активность теста"""
+    test = await get_test_by_id(test_id)
+    if test:
+        test.is_active = not test.is_active
+        return await update_test(test)
+    return None
+
+
+async def update_test_questions_count(test_id: int) -> Test:
+    """Обновить счётчик вопросов в тесте"""
+    async with async_session_maker() as session:
+        # Считаем вопросы
+        result = await session.execute(
+            select(func.count(TestQuestion.id)).where(TestQuestion.test_id == test_id)
+        )
+        count = result.scalar() or 0
+
+        # Обновляем тест
+        await session.execute(
+            update(Test)
+            .where(Test.id == test_id)
+            .values(questions_count=count)
+        )
+        await session.commit()
+
+    return await get_test_by_id(test_id)
+
+
+# ==================== ВОПРОСЫ ТЕСТОВ ====================
+
+async def get_questions_by_test(test_id: int) -> List[TestQuestion]:
+    """Получить все вопросы теста"""
+    async with async_session_maker() as session:
+        result = await session.execute(
+            select(TestQuestion)
+            .options(joinedload(TestQuestion.lesson))
+            .where(TestQuestion.test_id == test_id)
+            .order_by(TestQuestion.lesson_id, TestQuestion.order)
+        )
+        return list(result.scalars().unique().all())
+
+
+async def get_questions_by_lesson(test_id: int, lesson_id: int) -> List[TestQuestion]:
+    """Получить вопросы теста для конкретного урока"""
+    async with async_session_maker() as session:
+        result = await session.execute(
+            select(TestQuestion)
+            .options(joinedload(TestQuestion.lesson))
+            .where(
+                and_(
+                    TestQuestion.test_id == test_id,
+                    TestQuestion.lesson_id == lesson_id
+                )
+            )
+            .order_by(TestQuestion.order)
+        )
+        return list(result.scalars().unique().all())
+
+
+async def get_question_by_id(question_id: int) -> Optional[TestQuestion]:
+    """Получить вопрос по ID"""
+    async with async_session_maker() as session:
+        result = await session.execute(
+            select(TestQuestion).where(TestQuestion.id == question_id)
+        )
+        return result.scalar_one_or_none()
+
+
+async def create_question(
+    test_id: int,
+    lesson_id: int,
+    question_text: str,
+    options: list,
+    correct_answer_index: int,
+    explanation: Optional[str] = None,
+    order: int = 0,
+    points: int = 1
+) -> TestQuestion:
+    """Создать новый вопрос (с привязкой к уроку)"""
+    async with async_session_maker() as session:
+        question = TestQuestion(
+            test_id=test_id,
+            lesson_id=lesson_id,
+            question_text=question_text,
+            options=options,
+            correct_answer_index=correct_answer_index,
+            explanation=explanation,
+            order=order,
+            points=points
+        )
+        session.add(question)
+        await session.commit()
+        await session.refresh(question)
+
+    # Обновляем счётчик вопросов в тесте
+    await update_test_questions_count(test_id)
+
+    return question
+
+
+async def update_question(question: TestQuestion) -> TestQuestion:
+    """Обновить вопрос"""
+    async with async_session_maker() as session:
+        await session.merge(question)
+        await session.commit()
+        return question
+
+
+async def delete_question(question_id: int) -> bool:
+    """Удалить вопрос"""
+    # Сначала получаем test_id
+    question = await get_question_by_id(question_id)
+    if not question:
+        return False
+
+    test_id = question.test_id
+
+    async with async_session_maker() as session:
+        result = await session.execute(
+            delete(TestQuestion).where(TestQuestion.id == question_id)
+        )
+        await session.commit()
+        success = result.rowcount > 0
+
+    if success:
+        # Обновляем счётчик вопросов
+        await update_test_questions_count(test_id)
+
+    return success
+
+
+async def reorder_questions(test_id: int, question_ids_in_order: List[int]) -> bool:
+    """Изменить порядок вопросов"""
+    async with async_session_maker() as session:
+        for index, question_id in enumerate(question_ids_in_order):
+            await session.execute(
+                update(TestQuestion)
+                .where(TestQuestion.id == question_id)
+                .values(order=index)
+            )
+        await session.commit()
+        return True
+
+
+# ==================== ПОПЫТКИ ПРОХОЖДЕНИЯ ТЕСТОВ ====================
+
+async def get_attempts_by_test(test_id: int) -> List[TestAttempt]:
+    """Получить все попытки по тесту"""
+    async with async_session_maker() as session:
+        result = await session.execute(
+            select(TestAttempt)
+            .options(
+                joinedload(TestAttempt.user),
+                joinedload(TestAttempt.test)
+            )
+            .where(TestAttempt.test_id == test_id)
+            .order_by(TestAttempt.started_at.desc())
+        )
+        return list(result.scalars().unique().all())
+
+
+async def get_attempts_by_user(user_id: int, test_id: Optional[int] = None) -> List[TestAttempt]:
+    """Получить все попытки пользователя (опционально фильтруя по test_id)"""
+    async with async_session_maker() as session:
+        query = select(TestAttempt).options(
+            joinedload(TestAttempt.user),
+            joinedload(TestAttempt.test)
+        ).where(TestAttempt.user_id == user_id)
+
+        if test_id is not None:
+            query = query.where(TestAttempt.test_id == test_id)
+
+        query = query.order_by(TestAttempt.started_at.desc())
+
+        result = await session.execute(query)
+        return list(result.scalars().unique().all())
+
+
+async def get_best_attempt(user_id: int, test_id: int) -> Optional[TestAttempt]:
+    """Получить лучшую попытку пользователя по тесту"""
+    async with async_session_maker() as session:
+        result = await session.execute(
+            select(TestAttempt)
+            .where(
+                and_(
+                    TestAttempt.user_id == user_id,
+                    TestAttempt.test_id == test_id,
+                    TestAttempt.completed_at.isnot(None)
+                )
+            )
+            .order_by(TestAttempt.score.desc())
+            .limit(1)
+        )
+        return result.scalar_one_or_none()
+
+
+async def create_attempt(
+    user_id: int,
+    test_id: int,
+    lesson_id: Optional[int],
+    score: int,
+    max_score: int,
+    passed: bool,
+    answers: dict,
+    time_spent_seconds: int = 0
+) -> TestAttempt:
+    """Создать новую попытку"""
+    async with async_session_maker() as session:
+        attempt = TestAttempt(
+            user_id=user_id,
+            test_id=test_id,
+            lesson_id=lesson_id,
+            score=score,
+            max_score=max_score,
+            passed=passed,
+            answers=answers,
+            time_spent_seconds=time_spent_seconds,
+            completed_at=get_moscow_now()
+        )
+        session.add(attempt)
+        await session.commit()
+        await session.refresh(attempt)
+        return attempt
+
+
+async def update_attempt(attempt: TestAttempt) -> TestAttempt:
+    """Обновить попытку"""
+    async with async_session_maker() as session:
+        await session.merge(attempt)
+        await session.commit()
+        return attempt

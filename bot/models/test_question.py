@@ -12,6 +12,7 @@ from bot.utils.timezone_utils import get_moscow_now
 
 if TYPE_CHECKING:
     from bot.models.test import Test
+    from bot.models.lesson import Lesson
 
 
 class TestQuestion(Base):
@@ -23,6 +24,14 @@ class TestQuestion(Base):
     test_id: Mapped[int] = mapped_column(
         Integer,
         ForeignKey("tests.id", ondelete="CASCADE"),
+        nullable=False,
+        index=True
+    )
+
+    # Урок, к которому относится вопрос (обязательное поле)
+    lesson_id: Mapped[int] = mapped_column(
+        Integer,
+        ForeignKey("lessons.id", ondelete="CASCADE"),
         nullable=False,
         index=True
     )
@@ -51,6 +60,7 @@ class TestQuestion(Base):
 
     # Отношения
     test: Mapped["Test"] = relationship(back_populates="questions")
+    lesson: Mapped["Lesson"] = relationship()
 
     def __repr__(self) -> str:
         return f"<TestQuestion(id={self.id}, test_id={self.test_id})>"
