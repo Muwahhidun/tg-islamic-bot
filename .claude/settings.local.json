@@ -1,0 +1,9 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(docker-compose exec bot python migrate_lessons_to_series_id.py)"
+    ],
+    "deny": [],
+    "ask": []
+  }
+}
