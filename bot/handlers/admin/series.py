@@ -81,15 +81,23 @@ async def show_teacher_series(callback: CallbackQuery):
     teacher_id = int(callback.data.split("_")[2])
     series_list = await get_series_by_teacher(teacher_id)
 
+    # Получаем имя преподавателя
+    from bot.services.database_service import get_lesson_teacher_by_id
+    teacher = await get_lesson_teacher_by_id(teacher_id)
+    teacher_name = teacher.name if teacher else "Преподаватель"
+
     if not series_list:
-        await callback.answer("У преподавателя пока нет серий", show_alert=True)
-        return
-
-    teacher_name = series_list[0].teacher_name if series_list else "Преподаватель"
-
-    text = f"📚 <b>Серии преподавателя {teacher_name}</b>\n\n"
+        # Нет серий - показываем пустое меню с кнопкой создания
+        text = (
+            f"📚 <b>Серии преподавателя {teacher_name}</b>\n\n"
+            f"У этого преподавателя пока нет серий."
+        )
+    else:
+        text = f"📚 <b>Серии преподавателя {teacher_name}</b>\n\n"
 
     builder = InlineKeyboardBuilder()
+
+    # Показываем серии, если есть
     for series in series_list:
         lessons_count = series.total_lessons
         status = "✅" if series.is_completed else "🔄"
@@ -101,6 +109,7 @@ async def show_teacher_series(callback: CallbackQuery):
             callback_data=f"series_view_{series.id}"
         ))
 
+    # Всегда показываем кнопку создания
     builder.add(InlineKeyboardButton(text="➕ Создать новую серию", callback_data=f"series_create_teacher_{teacher_id}"))
     builder.add(InlineKeyboardButton(text="🔙 К выбору преподавателя", callback_data="admin_series"))
     builder.adjust(1)
@@ -160,7 +169,12 @@ async def edit_series_name(callback: CallbackQuery, state: FSMContext):
         await callback.answer("Серия не найдена", show_alert=True)
         return
 
-    await state.update_data(series_id=series_id)
+    # Сохраняем координаты сообщения для Single-Window UX
+    await state.update_data(
+        series_id=series_id,
+        edit_message_id=callback.message.message_id,
+        edit_chat_id=callback.message.chat.id
+    )
     await state.set_state(SeriesStates.edit_name)
 
     await callback.message.edit_text(
@@ -181,22 +195,60 @@ async def save_series_name(message: Message, state: FSMContext):
     data = await state.get_data()
     series_id = data.get("series_id")
 
+    # Удаляем пользовательское сообщение
+    try:
+        await message.delete()
+    except:
+        pass
+
     series = await get_series_by_id(series_id)
     if not series:
-        await message.answer("❌ Серия не найдена")
+        await message.bot.edit_message_text(
+            chat_id=data['edit_chat_id'],
+            message_id=data['edit_message_id'],
+            text="❌ Серия не найдена"
+        )
         await state.clear()
         return
 
-    series.name = message.text
+    series.name = message.text.strip()
     await update_lesson_series(series)
 
-    await state.clear()
-    await message.answer(
-        f"✅ Название серии обновлено: <b>{series.name}</b>",
-        reply_markup=InlineKeyboardMarkup(inline_keyboard=[[
-            InlineKeyboardButton(text="🔙 К серии", callback_data=f"series_view_{series_id}")
-        ]])
+    # Перезагружаем серию с актуальными данными
+    series = await get_series_by_id(series_id)
+
+    # Строим полное меню серии
+    text = series.full_info
+
+    builder = InlineKeyboardBuilder()
+    builder.add(InlineKeyboardButton(text="✏️ Редактировать название", callback_data=f"series_edit_name_{series.id}"))
+    builder.add(InlineKeyboardButton(text="✏️ Редактировать год", callback_data=f"series_edit_year_{series.id}"))
+    builder.add(InlineKeyboardButton(text="✏️ Редактировать описание", callback_data=f"series_edit_desc_{series.id}"))
+    builder.add(InlineKeyboardButton(text="📖 Изменить книгу", callback_data=f"series_edit_book_{series.id}"))
+    builder.add(InlineKeyboardButton(text="📑 Изменить тему", callback_data=f"series_edit_theme_{series.id}"))
+
+    if series.is_completed:
+        builder.add(InlineKeyboardButton(text="🔄 Отметить как незавершённую", callback_data=f"series_toggle_completed_{series.id}"))
+    else:
+        builder.add(InlineKeyboardButton(text="✅ Отметить как завершённую", callback_data=f"series_toggle_completed_{series.id}"))
+
+    if series.is_active:
+        builder.add(InlineKeyboardButton(text="❌ Деактивировать", callback_data=f"series_toggle_active_{series.id}"))
+    else:
+        builder.add(InlineKeyboardButton(text="✅ Активировать", callback_data=f"series_toggle_active_{series.id}"))
+
+    builder.add(InlineKeyboardButton(text="🗑 Удалить серию", callback_data=f"series_delete_{series.id}"))
+    builder.add(InlineKeyboardButton(text="🔙 К списку серий", callback_data=f"series_teacher_{series.teacher_id}"))
+    builder.adjust(1)
+
+    # Обновляем оригинальное сообщение
+    await message.bot.edit_message_text(
+        chat_id=data['edit_chat_id'],
+        message_id=data['edit_message_id'],
+        text=text,
+        reply_markup=builder.as_markup()
     )
+    await state.clear()
 
 
 @router.callback_query(F.data.startswith("series_toggle_completed_"))
@@ -305,7 +357,12 @@ async def edit_series_year(callback: CallbackQuery, state: FSMContext):
         await callback.answer("Серия не найдена", show_alert=True)
         return
 
-    await state.update_data(series_id=series_id)
+    # Сохраняем координаты сообщения для Single-Window UX
+    await state.update_data(
+        series_id=series_id,
+        edit_message_id=callback.message.message_id,
+        edit_chat_id=callback.message.chat.id
+    )
     await state.set_state(SeriesStates.edit_year)
 
     await callback.message.edit_text(
@@ -326,31 +383,86 @@ async def save_series_year(message: Message, state: FSMContext):
     data = await state.get_data()
     series_id = data.get("series_id")
 
+    # Удаляем пользовательское сообщение
+    try:
+        await message.delete()
+    except:
+        pass
+
     series = await get_series_by_id(series_id)
     if not series:
-        await message.answer("❌ Серия не найдена")
+        await message.bot.edit_message_text(
+            chat_id=data['edit_chat_id'],
+            message_id=data['edit_message_id'],
+            text="❌ Серия не найдена"
+        )
         await state.clear()
         return
 
+    # Валидация года
     try:
-        year = int(message.text)
+        year = int(message.text.strip())
         if year < 2000 or year > 2050:
-            await message.answer("❌ Год должен быть в диапазоне 2000-2050")
+            # Показываем ошибку в том же окне
+            await message.bot.edit_message_text(
+                chat_id=data['edit_chat_id'],
+                message_id=data['edit_message_id'],
+                text=f"❌ <b>Ошибка!</b>\n\nГод должен быть в диапазоне 2000-2050.\n\nВведите корректный год:",
+                reply_markup=InlineKeyboardMarkup(inline_keyboard=[[
+                    InlineKeyboardButton(text="🔙 Отмена", callback_data=f"series_view_{series_id}")
+                ]])
+            )
             return
     except ValueError:
-        await message.answer("❌ Введите корректный год (число)")
+        # Показываем ошибку в том же окне
+        await message.bot.edit_message_text(
+            chat_id=data['edit_chat_id'],
+            message_id=data['edit_message_id'],
+            text=f"❌ <b>Ошибка!</b>\n\nВведите корректный год (число).\n\nПопробуйте снова:",
+            reply_markup=InlineKeyboardMarkup(inline_keyboard=[[
+                InlineKeyboardButton(text="🔙 Отмена", callback_data=f"series_view_{series_id}")
+            ]])
+        )
         return
 
     series.year = year
     await update_lesson_series(series)
 
-    await state.clear()
-    await message.answer(
-        f"✅ Год серии обновлен: <b>{series.year}</b>",
-        reply_markup=InlineKeyboardMarkup(inline_keyboard=[[
-            InlineKeyboardButton(text="🔙 К серии", callback_data=f"series_view_{series_id}")
-        ]])
+    # Перезагружаем серию с актуальными данными
+    series = await get_series_by_id(series_id)
+
+    # Строим полное меню серии
+    text = series.full_info
+
+    builder = InlineKeyboardBuilder()
+    builder.add(InlineKeyboardButton(text="✏️ Редактировать название", callback_data=f"series_edit_name_{series.id}"))
+    builder.add(InlineKeyboardButton(text="✏️ Редактировать год", callback_data=f"series_edit_year_{series.id}"))
+    builder.add(InlineKeyboardButton(text="✏️ Редактировать описание", callback_data=f"series_edit_desc_{series.id}"))
+    builder.add(InlineKeyboardButton(text="📖 Изменить книгу", callback_data=f"series_edit_book_{series.id}"))
+    builder.add(InlineKeyboardButton(text="📑 Изменить тему", callback_data=f"series_edit_theme_{series.id}"))
+
+    if series.is_completed:
+        builder.add(InlineKeyboardButton(text="🔄 Отметить как незавершённую", callback_data=f"series_toggle_completed_{series.id}"))
+    else:
+        builder.add(InlineKeyboardButton(text="✅ Отметить как завершённую", callback_data=f"series_toggle_completed_{series.id}"))
+
+    if series.is_active:
+        builder.add(InlineKeyboardButton(text="❌ Деактивировать", callback_data=f"series_toggle_active_{series.id}"))
+    else:
+        builder.add(InlineKeyboardButton(text="✅ Активировать", callback_data=f"series_toggle_active_{series.id}"))
+
+    builder.add(InlineKeyboardButton(text="🗑 Удалить серию", callback_data=f"series_delete_{series.id}"))
+    builder.add(InlineKeyboardButton(text="🔙 К списку серий", callback_data=f"series_teacher_{series.teacher_id}"))
+    builder.adjust(1)
+
+    # Обновляем оригинальное сообщение
+    await message.bot.edit_message_text(
+        chat_id=data['edit_chat_id'],
+        message_id=data['edit_message_id'],
+        text=text,
+        reply_markup=builder.as_markup()
     )
+    await state.clear()
 
 
 @router.callback_query(F.data.startswith("series_edit_desc_"))
@@ -364,7 +476,12 @@ async def edit_series_description(callback: CallbackQuery, state: FSMContext):
         await callback.answer("Серия не найдена", show_alert=True)
         return
 
-    await state.update_data(series_id=series_id)
+    # Сохраняем координаты сообщения для Single-Window UX
+    await state.update_data(
+        series_id=series_id,
+        edit_message_id=callback.message.message_id,
+        edit_chat_id=callback.message.chat.id
+    )
     await state.set_state(SeriesStates.edit_description)
 
     current_desc = series.description if series.description else "не указано"
@@ -387,28 +504,64 @@ async def save_series_description(message: Message, state: FSMContext):
     data = await state.get_data()
     series_id = data.get("series_id")
 
+    # Удаляем пользовательское сообщение
+    try:
+        await message.delete()
+    except:
+        pass
+
     series = await get_series_by_id(series_id)
     if not series:
-        await message.answer("❌ Серия не найдена")
+        await message.bot.edit_message_text(
+            chat_id=data['edit_chat_id'],
+            message_id=data['edit_message_id'],
+            text="❌ Серия не найдена"
+        )
         await state.clear()
         return
 
-    if message.text == "-":
+    if message.text.strip() == "-":
         series.description = None
-        desc_text = "удалено"
     else:
-        series.description = message.text
-        desc_text = message.text
+        series.description = message.text.strip()
 
     await update_lesson_series(series)
 
-    await state.clear()
-    await message.answer(
-        f"✅ Описание серии обновлено: <i>{desc_text}</i>",
-        reply_markup=InlineKeyboardMarkup(inline_keyboard=[[
-            InlineKeyboardButton(text="🔙 К серии", callback_data=f"series_view_{series_id}")
-        ]])
+    # Перезагружаем серию с актуальными данными
+    series = await get_series_by_id(series_id)
+
+    # Строим полное меню серии
+    text = series.full_info
+
+    builder = InlineKeyboardBuilder()
+    builder.add(InlineKeyboardButton(text="✏️ Редактировать название", callback_data=f"series_edit_name_{series.id}"))
+    builder.add(InlineKeyboardButton(text="✏️ Редактировать год", callback_data=f"series_edit_year_{series.id}"))
+    builder.add(InlineKeyboardButton(text="✏️ Редактировать описание", callback_data=f"series_edit_desc_{series.id}"))
+    builder.add(InlineKeyboardButton(text="📖 Изменить книгу", callback_data=f"series_edit_book_{series.id}"))
+    builder.add(InlineKeyboardButton(text="📑 Изменить тему", callback_data=f"series_edit_theme_{series.id}"))
+
+    if series.is_completed:
+        builder.add(InlineKeyboardButton(text="🔄 Отметить как незавершённую", callback_data=f"series_toggle_completed_{series.id}"))
+    else:
+        builder.add(InlineKeyboardButton(text="✅ Отметить как завершённую", callback_data=f"series_toggle_completed_{series.id}"))
+
+    if series.is_active:
+        builder.add(InlineKeyboardButton(text="❌ Деактивировать", callback_data=f"series_toggle_active_{series.id}"))
+    else:
+        builder.add(InlineKeyboardButton(text="✅ Активировать", callback_data=f"series_toggle_active_{series.id}"))
+
+    builder.add(InlineKeyboardButton(text="🗑 Удалить серию", callback_data=f"series_delete_{series.id}"))
+    builder.add(InlineKeyboardButton(text="🔙 К списку серий", callback_data=f"series_teacher_{series.teacher_id}"))
+    builder.adjust(1)
+
+    # Обновляем оригинальное сообщение
+    await message.bot.edit_message_text(
+        chat_id=data['edit_chat_id'],
+        message_id=data['edit_message_id'],
+        text=text,
+        reply_markup=builder.as_markup()
     )
+    await state.clear()
 
 
 @router.callback_query(F.data.startswith("series_edit_book_"))
@@ -655,7 +808,12 @@ async def create_series_start(callback: CallbackQuery, state: FSMContext):
     """Начать создание новой серии для преподавателя"""
     teacher_id = int(callback.data.split("_")[3])
 
-    await state.update_data(teacher_id=teacher_id)
+    # Сохраняем координаты сообщения для Single-Window UX
+    await state.update_data(
+        teacher_id=teacher_id,
+        create_message_id=callback.message.message_id,
+        create_chat_id=callback.message.chat.id
+    )
     await state.set_state(SeriesStates.create_name)
 
     await callback.message.edit_text(
@@ -672,28 +830,36 @@ async def create_series_start(callback: CallbackQuery, state: FSMContext):
 @admin_required
 async def create_series_name(message: Message, state: FSMContext):
     """Сохранить название и запросить год"""
-    import logging
-    logger = logging.getLogger(__name__)
+    data = await state.get_data()
+    teacher_id = data.get("teacher_id")
+
+    # Удаляем пользовательское сообщение
+    try:
+        await message.delete()
+    except:
+        pass
 
     name = message.text.strip()
 
     if not name:
-        await message.answer("❌ Название не может быть пустым. Введите название серии:")
+        await message.bot.edit_message_text(
+            chat_id=data['create_chat_id'],
+            message_id=data['create_message_id'],
+            text="❌ <b>Ошибка!</b>\n\nНазвание не может быть пустым.\n\nВведите название серии:",
+            reply_markup=InlineKeyboardMarkup(inline_keyboard=[[
+                InlineKeyboardButton(text="🔙 Отмена", callback_data=f"series_teacher_{teacher_id}")
+            ]])
+        )
         return
 
-    data = await state.get_data()
-    teacher_id = data.get("teacher_id")
-
-    logger.info(f"DEBUG create_series_name - BEFORE update - data: {data}")
     await state.update_data(name=name)
     await state.set_state(SeriesStates.create_year)
 
-    data_after = await state.get_data()
-    logger.info(f"DEBUG create_series_name - AFTER update - data: {data_after}")
-
-    await message.answer(
-        f"✅ Название: <b>{name}</b>\n\n"
-        f"Шаг 2/5: Введите год серии (2000-2050):",
+    await message.bot.edit_message_text(
+        chat_id=data['create_chat_id'],
+        message_id=data['create_message_id'],
+        text=f"✅ Название: <b>{name}</b>\n\n"
+             f"Шаг 2/5: Введите год серии (2000-2050):",
         reply_markup=InlineKeyboardMarkup(inline_keyboard=[[
             InlineKeyboardButton(text="🔙 Отмена", callback_data=f"series_teacher_{teacher_id}")
         ]])
@@ -704,24 +870,47 @@ async def create_series_name(message: Message, state: FSMContext):
 @admin_required
 async def create_series_year(message: Message, state: FSMContext):
     """Сохранить год и запросить описание"""
+    data = await state.get_data()
+    teacher_id = data.get("teacher_id")
+
+    # Удаляем пользовательское сообщение
+    try:
+        await message.delete()
+    except:
+        pass
+
+    # Валидация года
     try:
         year = int(message.text.strip())
         if year < 2000 or year > 2050:
-            await message.answer("❌ Год должен быть в диапазоне 2000-2050. Введите год:")
+            await message.bot.edit_message_text(
+                chat_id=data['create_chat_id'],
+                message_id=data['create_message_id'],
+                text="❌ <b>Ошибка!</b>\n\nГод должен быть в диапазоне 2000-2050.\n\nВведите год:",
+                reply_markup=InlineKeyboardMarkup(inline_keyboard=[[
+                    InlineKeyboardButton(text="🔙 Отмена", callback_data=f"series_teacher_{teacher_id}")
+                ]])
+            )
             return
     except ValueError:
-        await message.answer("❌ Введите корректный год (число). Введите год:")
+        await message.bot.edit_message_text(
+            chat_id=data['create_chat_id'],
+            message_id=data['create_message_id'],
+            text="❌ <b>Ошибка!</b>\n\nВведите корректный год (число).\n\nПопробуйте снова:",
+            reply_markup=InlineKeyboardMarkup(inline_keyboard=[[
+                InlineKeyboardButton(text="🔙 Отмена", callback_data=f"series_teacher_{teacher_id}")
+            ]])
+        )
         return
-
-    data = await state.get_data()
-    teacher_id = data.get("teacher_id")
 
     await state.update_data(year=year)
     await state.set_state(SeriesStates.create_description)
 
-    await message.answer(
-        f"✅ Год: <b>{year}</b>\n\n"
-        f"Шаг 3/5: Введите описание серии:",
+    await message.bot.edit_message_text(
+        chat_id=data['create_chat_id'],
+        message_id=data['create_message_id'],
+        text=f"✅ Год: <b>{year}</b>\n\n"
+             f"Шаг 3/5: Введите описание серии:",
         reply_markup=InlineKeyboardMarkup(inline_keyboard=[
             [InlineKeyboardButton(text="⏭️ Пропустить", callback_data="series_create_skip_desc")],
             [InlineKeyboardButton(text="🔙 Отмена", callback_data=f"series_teacher_{teacher_id}")]
@@ -741,24 +930,20 @@ async def create_series_skip_description(callback: CallbackQuery, state: FSMCont
 @admin_required
 async def create_series_description(message: Message, state: FSMContext):
     """Сохранить описание и перейти к выбору книги"""
+    data = await state.get_data()
+
+    # Удаляем пользовательское сообщение
+    try:
+        await message.delete()
+    except:
+        pass
+
     description = message.text.strip()
     await state.update_data(description=description)
 
-    # Создаём фейковый callback для переиспользования функции
-    class FakeCallback:
-        def __init__(self, msg):
-            self.message = msg
-        async def answer(self): pass
-
-    await ask_series_book(FakeCallback(message), state)
-
-
-async def ask_series_book(callback_or_msg, state: FSMContext):
-    """Общая функция для запроса выбора книги"""
-    data = await state.get_data()
-    teacher_id = data.get("teacher_id")
-
+    # Переходим к выбору книги (используем те же координаты сообщения)
     books = await get_all_books()
+    teacher_id = data.get("teacher_id")
 
     await state.set_state(SeriesStates.create_book)
 
@@ -779,14 +964,41 @@ async def ask_series_book(callback_or_msg, state: FSMContext):
     builder.add(InlineKeyboardButton(text="🔙 Отмена", callback_data=f"series_teacher_{teacher_id}"))
     builder.adjust(1)
 
-    # Проверяем тип объекта - если это CallbackQuery, редактируем, иначе отправляем новое сообщение
-    if hasattr(callback_or_msg, 'message'):
-        # Это CallbackQuery
-        await callback_or_msg.message.edit_text(text, reply_markup=builder.as_markup())
-        await callback_or_msg.answer()
-    else:
-        # Это Message
-        await callback_or_msg.answer(text, reply_markup=builder.as_markup())
+    await message.bot.edit_message_text(
+        chat_id=data['create_chat_id'],
+        message_id=data['create_message_id'],
+        text=text,
+        reply_markup=builder.as_markup()
+    )
+
+
+async def ask_series_book(callback: CallbackQuery, state: FSMContext):
+    """Общая функция для запроса выбора книги (для пропуска описания)"""
+    data = await state.get_data()
+    teacher_id = data.get("teacher_id")
+
+    books = await get_all_books()
+
+    await state.set_state(SeriesStates.create_book)
+
+    text = (
+        f"Шаг 4/5: Выберите книгу для серии:"
+    )
+
+    builder = InlineKeyboardBuilder()
+    builder.add(InlineKeyboardButton(text="❌ Без книги", callback_data="series_create_book_none"))
+
+    for book in books:
+        builder.add(InlineKeyboardButton(
+            text=book.name,
+            callback_data=f"series_create_book_{book.id}"
+        ))
+
+    builder.add(InlineKeyboardButton(text="🔙 Отмена", callback_data=f"series_teacher_{teacher_id}"))
+    builder.adjust(1)
+
+    await callback.message.edit_text(text, reply_markup=builder.as_markup())
+    await callback.answer()
 
 
 @router.callback_query(F.data.startswith("series_create_book_"))
@@ -863,11 +1075,6 @@ async def create_series_final(callback: CallbackQuery, state: FSMContext):
     """Финальное создание серии"""
     data = await state.get_data()
 
-    # DEBUG
-    import logging
-    logger = logging.getLogger(__name__)
-    logger.info(f"DEBUG create_series_final - state data: {data}")
-
     teacher_id = data.get("teacher_id")
     name = data.get("name")
     year = data.get("year")
@@ -889,17 +1096,37 @@ async def create_series_final(callback: CallbackQuery, state: FSMContext):
     # Перезагружаем серию из БД, чтобы получить актуальные данные со всеми связями
     created_series = await get_series_by_id(created_series.id)
 
-    await state.clear()
+    # Получаем список всех серий преподавателя для показа
+    series_list = await get_series_by_teacher(teacher_id)
+    from bot.services.database_service import get_lesson_teacher_by_id
+    teacher = await get_lesson_teacher_by_id(teacher_id)
+    teacher_name = teacher.name if teacher else "Преподаватель"
 
-    await callback.message.edit_text(
-        f"✅ <b>Серия успешно создана!</b>\n\n"
-        f"{created_series.full_info}",
-        reply_markup=InlineKeyboardMarkup(inline_keyboard=[
-            [InlineKeyboardButton(text="👁 Просмотреть серию", callback_data=f"series_view_{created_series.id}")],
-            [InlineKeyboardButton(text="🔙 К списку серий", callback_data=f"series_teacher_{teacher_id}")]
-        ])
-    )
-    await callback.answer("✅ Серия создана!")
+    text = f"📚 <b>Серии преподавателя {teacher_name}</b>\n\n"
+
+    builder = InlineKeyboardBuilder()
+
+    # Показываем все серии
+    for series in series_list:
+        lessons_count = series.total_lessons
+        status = "✅" if series.is_completed else "🔄"
+        active = "✅" if series.is_active else "❌"
+
+        button_text = f"{status} {series.year} - {series.name} ({lessons_count} ур.) {active}"
+        builder.add(InlineKeyboardButton(
+            text=button_text,
+            callback_data=f"series_view_{series.id}"
+        ))
+
+    builder.add(InlineKeyboardButton(text="➕ Создать новую серию", callback_data=f"series_create_teacher_{teacher_id}"))
+    builder.add(InlineKeyboardButton(text="🔙 К выбору преподавателя", callback_data="admin_series"))
+    builder.adjust(1)
+
+    # Обновляем оригинальное сообщение - возвращаемся к списку серий
+    await callback.message.edit_text(text, reply_markup=builder.as_markup())
+    await callback.answer(f"✅ Серия создана: {created_series.year} - {created_series.name}")
+
+    await state.clear()
 
 
 # TODO: Добавить массовое обновление уроков (series_bulk_update)

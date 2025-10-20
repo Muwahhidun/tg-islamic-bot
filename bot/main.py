@@ -130,9 +130,9 @@ async def main():
     # Создание диспетчера
     dp = Dispatcher()
     
-    # Включение роутеров
-    dp.include_router(user.router)
+    # Включение роутеров (admin первым для приоритета специфичных хендлеров)
     dp.include_router(admin.router)
+    dp.include_router(user.router)
 
     # Создание директории для аудиофайлов
     os.makedirs(config.audio_files_path, exist_ok=True)
