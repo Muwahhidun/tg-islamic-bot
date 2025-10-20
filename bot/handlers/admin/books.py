@@ -33,12 +33,7 @@ class BookStates(StatesGroup):
 @admin_required
 async def admin_books(callback: CallbackQuery):
     """Показать список книг для управления"""
-    import logging
-    logger = logging.getLogger(__name__)
-    logger.error(f"admin_books handler called!!! Fetching books...")
-
     books = await get_all_books()
-    logger.error(f"Found {len(books)} books")
 
     builder = InlineKeyboardBuilder()
     for book in books:
@@ -64,18 +59,10 @@ async def admin_books(callback: CallbackQuery):
 @admin_required
 async def add_book_start(callback: CallbackQuery, state: FSMContext):
     """Начать добавление новой книги"""
-    # Получаем список тем и авторов
-    themes = await get_all_themes()
-    authors = await get_all_book_authors()
-
-    if not themes or not authors:
-        await callback.message.edit_text(
-            "❌ Для добавления книги нужно сначала создать хотя бы одну тему и одного автора",
-            reply_markup=InlineKeyboardMarkup(inline_keyboard=[[InlineKeyboardButton(text="🔙 Назад", callback_data="admin_books")]])
-        )
-        await callback.answer()
-        return
-
+    await state.update_data(
+        create_message_id=callback.message.message_id,
+        create_chat_id=callback.message.chat.id
+    )
     await callback.message.edit_text(
         "📝 <b>Добавление новой книги</b>\n\n"
         "Введите название книги:",
@@ -90,6 +77,43 @@ async def add_book_start(callback: CallbackQuery, state: FSMContext):
 async def add_book_name(message: Message, state: FSMContext):
     """Сохранить название книги (создание или редактирование)"""
     data = await state.get_data()
+    new_name = message.text.strip()
+
+    # Проверка уникальности названия
+    all_books = await get_all_books()
+    book_id = data.get("book_id")
+    existing_book = next((b for b in all_books if b.name == new_name and (not book_id or b.id != book_id)), None)
+
+    if existing_book:
+        # Удаляем сообщение пользователя
+        try:
+            await message.delete()
+        except:
+            pass
+
+        # Определяем координаты окна в зависимости от режима
+        if book_id:
+            # Режим редактирования
+            chat_id = data.get("edit_chat_id")
+            message_id = data.get("edit_message_id")
+            cancel_callback = f"edit_book_{book_id}"
+        else:
+            # Режим создания
+            chat_id = data.get("create_chat_id")
+            message_id = data.get("create_message_id")
+            cancel_callback = "admin_books"
+
+        # Обновляем исходное окно с ошибкой
+        if chat_id and message_id:
+            await message.bot.edit_message_text(
+                chat_id=chat_id,
+                message_id=message_id,
+                text=f"❌ <b>Ошибка!</b>\n\nКнига с названием «{new_name}» уже существует!\n\nВведите другое название:",
+                reply_markup=InlineKeyboardMarkup(inline_keyboard=[[
+                    InlineKeyboardButton(text="🔙 Отмена", callback_data=cancel_callback)
+                ]])
+            )
+        return
 
     # Проверяем, это редактирование или создание
     if "book_id" in data:
@@ -97,28 +121,96 @@ async def add_book_name(message: Message, state: FSMContext):
         book_id = data["book_id"]
         book = await get_book_by_id(book_id)
         if book:
-            book.name = message.text
+            book.name = new_name
             await update_book(book)
-        await state.clear()
 
-        await message.answer(
-            f"✅ Название книги обновлено!",
-            reply_markup=InlineKeyboardMarkup(inline_keyboard=[[
-                InlineKeyboardButton(text="🔙 К редактированию", callback_data=f"edit_book_{book_id}")
-            ]])
-        )
+            # Удаляем сообщение пользователя
+            try:
+                await message.delete()
+            except:
+                pass
+
+            # Получаем сохранённые данные из state
+            edit_message_id = data.get("edit_message_id")
+            edit_chat_id = data.get("edit_chat_id")
+
+            # Очищаем state
+            await state.clear()
+
+            # Перезагружаем книгу из БД для получения свежих данных
+            book = await get_book_by_id(book_id)
+
+            # Формируем меню редактирования (как в edit_book_menu)
+            theme_name = book.theme.name if book.theme else "Не указана"
+            author_name = book.author.name if book.author else "Не указан"
+            status = "Активна" if book.is_active else "Неактивна"
+
+            builder = InlineKeyboardBuilder()
+            builder.add(InlineKeyboardButton(text="✏️ Изменить название", callback_data=f"edit_book_name_{book.id}"))
+            builder.add(InlineKeyboardButton(text="📝 Изменить описание", callback_data=f"edit_book_description_{book.id}"))
+            builder.add(InlineKeyboardButton(text="🏷️ Изменить тему", callback_data=f"edit_book_theme_{book.id}"))
+            builder.add(InlineKeyboardButton(text="✍️ Изменить автора", callback_data=f"edit_book_author_{book.id}"))
+            toggle_text = "❌ Деактивировать" if book.is_active else "✅ Активировать"
+            builder.add(InlineKeyboardButton(text=toggle_text, callback_data=f"toggle_book_{book.id}"))
+            builder.add(InlineKeyboardButton(text="🗑️ Удалить книгу", callback_data=f"delete_book_{book.id}"))
+            builder.add(InlineKeyboardButton(text="🔙 Назад", callback_data="admin_books"))
+            builder.adjust(1)
+
+            info = (
+                f"📖 <b>Редактирование книги</b>\n\n"
+                f"<b>Название:</b> {book.name}\n"
+                f"<b>Описание:</b> {book.desc or 'Не указано'}\n"
+                f"<b>Тема:</b> {theme_name}\n"
+                f"<b>Автор:</b> {author_name}\n"
+                f"<b>Статус:</b> {status}\n\n"
+                f"Выберите действие:"
+            )
+
+            # Обновляем оригинальное сообщение
+            if edit_message_id and edit_chat_id:
+                try:
+                    await message.bot.edit_message_text(
+                        chat_id=edit_chat_id,
+                        message_id=edit_message_id,
+                        text=info,
+                        reply_markup=builder.as_markup()
+                    )
+                except Exception as e:
+                    # Если не получилось отредактировать, отправляем новое
+                    await message.answer(info, reply_markup=builder.as_markup())
     else:
         # Создание новой книги
-        await state.update_data(name=message.text)
+        # Удаляем сообщение пользователя
+        await message.delete()
 
-        await message.answer(
-            "📝 <b>Добавление новой книги</b>\n\n"
-            "Введите описание книги:",
-            reply_markup=InlineKeyboardMarkup(inline_keyboard=[
-                [InlineKeyboardButton(text="⏭️ Пропустить", callback_data="skip_book_description")],
-                [InlineKeyboardButton(text="🔙 Отмена", callback_data="admin_books")]
-            ])
-        )
+        # Получаем сохранённые данные из state
+        create_message_id = data.get("create_message_id")
+        create_chat_id = data.get("create_chat_id")
+
+        await state.update_data(name=new_name)
+
+        # Обновляем оригинальное сообщение
+        if create_message_id and create_chat_id:
+            try:
+                await message.bot.edit_message_text(
+                    chat_id=create_chat_id,
+                    message_id=create_message_id,
+                    text="📝 <b>Добавление новой книги</b>\n\n"
+                         "Введите описание книги:",
+                    reply_markup=InlineKeyboardMarkup(inline_keyboard=[
+                        [InlineKeyboardButton(text="⏭️ Пропустить", callback_data="skip_book_description")],
+                        [InlineKeyboardButton(text="🔙 Отмена", callback_data="admin_books")]
+                    ])
+                )
+            except:
+                await message.answer(
+                    "📝 <b>Добавление новой книги</b>\n\n"
+                    "Введите описание книги:",
+                    reply_markup=InlineKeyboardMarkup(inline_keyboard=[
+                        [InlineKeyboardButton(text="⏭️ Пропустить", callback_data="skip_book_description")],
+                        [InlineKeyboardButton(text="🔙 Отмена", callback_data="admin_books")]
+                    ])
+                )
         await state.set_state(BookStates.description)
 
 
@@ -134,6 +226,9 @@ async def add_book_skip_description(callback: CallbackQuery, state: FSMContext):
     builder = InlineKeyboardBuilder()
     for theme in themes:
         builder.add(InlineKeyboardButton(text=theme.name, callback_data=f"select_theme_{theme.id}"))
+    builder.add(InlineKeyboardButton(text="⏭️ Пропустить", callback_data="skip_book_theme"))
+    builder.add(InlineKeyboardButton(text="🔙 Отмена", callback_data="admin_books"))
+    builder.adjust(1)
 
     await callback.message.edit_text(
         "📝 <b>Добавление новой книги</b>\n\n"
@@ -158,16 +253,70 @@ async def add_book_description(message: Message, state: FSMContext):
         if book:
             book.desc = message.text
             await update_book(book)
-        await state.clear()
 
-        await message.answer(
-            f"✅ Описание книги обновлено!",
-            reply_markup=InlineKeyboardMarkup(inline_keyboard=[[
-                InlineKeyboardButton(text="🔙 К редактированию", callback_data=f"edit_book_{book_id}")
-            ]])
-        )
+            # Удаляем сообщение пользователя
+            try:
+                await message.delete()
+            except:
+                pass
+
+            # Получаем сохранённые данные из state
+            edit_message_id = data.get("edit_message_id")
+            edit_chat_id = data.get("edit_chat_id")
+
+            # Очищаем state
+            await state.clear()
+
+            # Перезагружаем книгу из БД для получения свежих данных
+            book = await get_book_by_id(book_id)
+
+            # Формируем меню редактирования (как в edit_book_menu)
+            theme_name = book.theme.name if book.theme else "Не указана"
+            author_name = book.author.name if book.author else "Не указан"
+            status = "Активна" if book.is_active else "Неактивна"
+
+            builder = InlineKeyboardBuilder()
+            builder.add(InlineKeyboardButton(text="✏️ Изменить название", callback_data=f"edit_book_name_{book.id}"))
+            builder.add(InlineKeyboardButton(text="📝 Изменить описание", callback_data=f"edit_book_description_{book.id}"))
+            builder.add(InlineKeyboardButton(text="🏷️ Изменить тему", callback_data=f"edit_book_theme_{book.id}"))
+            builder.add(InlineKeyboardButton(text="✍️ Изменить автора", callback_data=f"edit_book_author_{book.id}"))
+            toggle_text = "❌ Деактивировать" if book.is_active else "✅ Активировать"
+            builder.add(InlineKeyboardButton(text=toggle_text, callback_data=f"toggle_book_{book.id}"))
+            builder.add(InlineKeyboardButton(text="🗑️ Удалить книгу", callback_data=f"delete_book_{book.id}"))
+            builder.add(InlineKeyboardButton(text="🔙 Назад", callback_data="admin_books"))
+            builder.adjust(1)
+
+            info = (
+                f"📖 <b>Редактирование книги</b>\n\n"
+                f"<b>Название:</b> {book.name}\n"
+                f"<b>Описание:</b> {book.desc or 'Не указано'}\n"
+                f"<b>Тема:</b> {theme_name}\n"
+                f"<b>Автор:</b> {author_name}\n"
+                f"<b>Статус:</b> {status}\n\n"
+                f"Выберите действие:"
+            )
+
+            # Обновляем оригинальное сообщение
+            if edit_message_id and edit_chat_id:
+                try:
+                    await message.bot.edit_message_text(
+                        chat_id=edit_chat_id,
+                        message_id=edit_message_id,
+                        text=info,
+                        reply_markup=builder.as_markup()
+                    )
+                except Exception as e:
+                    # Если не получилось отредактировать, отправляем новое
+                    await message.answer(info, reply_markup=builder.as_markup())
     else:
         # Создание новой книги
+        # Удаляем сообщение пользователя
+        await message.delete()
+
+        # Получаем сохранённые данные из state
+        create_message_id = data.get("create_message_id")
+        create_chat_id = data.get("create_chat_id")
+
         await state.update_data(desc=message.text)
 
         # Получаем список тем
@@ -180,11 +329,22 @@ async def add_book_description(message: Message, state: FSMContext):
         builder.add(InlineKeyboardButton(text="🔙 Отмена", callback_data="admin_books"))
         builder.adjust(1)  # По одной кнопке в строке
 
-        await message.answer(
-            "📝 <b>Добавление новой книги</b>\n\n"
-            "Выберите тему для книги:",
-            reply_markup=builder.as_markup()
-        )
+        # Обновляем оригинальное сообщение
+        if create_message_id and create_chat_id:
+            try:
+                await message.bot.edit_message_text(
+                    chat_id=create_chat_id,
+                    message_id=create_message_id,
+                    text="📝 <b>Добавление новой книги</b>\n\n"
+                         "Выберите тему для книги:",
+                    reply_markup=builder.as_markup()
+                )
+            except:
+                await message.answer(
+                    "📝 <b>Добавление новой книги</b>\n\n"
+                    "Выберите тему для книги:",
+                    reply_markup=builder.as_markup()
+                )
         await state.set_state(BookStates.theme_id)
 
 
@@ -245,6 +405,7 @@ async def skip_book_author(callback: CallbackQuery, state: FSMContext):
     """Пропустить выбор автора"""
     data = await state.get_data()
 
+    # Создаём книгу
     book = await create_book(
         name=data["name"],
         desc=data.get("desc", ""),
@@ -253,11 +414,45 @@ async def skip_book_author(callback: CallbackQuery, state: FSMContext):
         is_active=True
     )
 
-    await callback.message.edit_text(
-        f"✅ Книга «{book.name}» успешно добавлена!",
-        reply_markup=InlineKeyboardMarkup(inline_keyboard=[[InlineKeyboardButton(text="🔙 К списку книг", callback_data="admin_books")]])
-    )
+    # Получаем сохранённые данные из state
+    create_message_id = data.get("create_message_id")
+    create_chat_id = data.get("create_chat_id")
+
+    # Очищаем state
     await state.clear()
+
+    # Загружаем весь список книг
+    books = await get_all_books()
+
+    # Строим список с кнопками (как в admin_books)
+    builder = InlineKeyboardBuilder()
+    for book_item in books:
+        status = "✅" if book_item.is_active else "❌"
+        builder.add(InlineKeyboardButton(
+            text=f"{status} {book_item.name}",
+            callback_data=f"edit_book_{book_item.id}"
+        ))
+
+    builder.add(InlineKeyboardButton(text="➕ Добавить книгу", callback_data="add_book"))
+    builder.add(InlineKeyboardButton(text="🔙 Назад", callback_data="admin_panel"))
+    builder.adjust(1)
+
+    # Обновляем оригинальное сообщение
+    if create_message_id and create_chat_id:
+        try:
+            await callback.bot.edit_message_text(
+                chat_id=create_chat_id,
+                message_id=create_message_id,
+                text="📖 <b>Управление книгами</b>\n\n"
+                     "Выберите книгу для редактирования или добавьте новую:",
+                reply_markup=builder.as_markup()
+            )
+        except:
+            await callback.message.edit_text(
+                "📖 <b>Управление книгами</b>\n\n"
+                "Выберите книгу для редактирования или добавьте новую:",
+                reply_markup=builder.as_markup()
+            )
     await callback.answer()
 
 
@@ -268,6 +463,7 @@ async def select_author_for_book(callback: CallbackQuery, state: FSMContext):
     author_id = int(callback.data.split("_")[2])
     data = await state.get_data()
 
+    # Создаём книгу
     book = await create_book(
         name=data["name"],
         desc=data.get("desc", ""),
@@ -276,11 +472,45 @@ async def select_author_for_book(callback: CallbackQuery, state: FSMContext):
         is_active=True
     )
 
-    await callback.message.edit_text(
-        f"✅ Книга «{book.name}» успешно добавлена!",
-        reply_markup=InlineKeyboardMarkup(inline_keyboard=[[InlineKeyboardButton(text="🔙 К списку книг", callback_data="admin_books")]])
-    )
+    # Получаем сохранённые данные из state
+    create_message_id = data.get("create_message_id")
+    create_chat_id = data.get("create_chat_id")
+
+    # Очищаем state
     await state.clear()
+
+    # Загружаем весь список книг
+    books = await get_all_books()
+
+    # Строим список с кнопками (как в admin_books)
+    builder = InlineKeyboardBuilder()
+    for book_item in books:
+        status = "✅" if book_item.is_active else "❌"
+        builder.add(InlineKeyboardButton(
+            text=f"{status} {book_item.name}",
+            callback_data=f"edit_book_{book_item.id}"
+        ))
+
+    builder.add(InlineKeyboardButton(text="➕ Добавить книгу", callback_data="add_book"))
+    builder.add(InlineKeyboardButton(text="🔙 Назад", callback_data="admin_panel"))
+    builder.adjust(1)
+
+    # Обновляем оригинальное сообщение
+    if create_message_id and create_chat_id:
+        try:
+            await callback.bot.edit_message_text(
+                chat_id=create_chat_id,
+                message_id=create_message_id,
+                text="📖 <b>Управление книгами</b>\n\n"
+                     "Выберите книгу для редактирования или добавьте новую:",
+                reply_markup=builder.as_markup()
+            )
+        except:
+            await callback.message.edit_text(
+                "📖 <b>Управление книгами</b>\n\n"
+                "Выберите книгу для редактирования или добавьте новую:",
+                reply_markup=builder.as_markup()
+            )
     await callback.answer()
 
 
@@ -289,7 +519,11 @@ async def select_author_for_book(callback: CallbackQuery, state: FSMContext):
 async def edit_book_name_start(callback: CallbackQuery, state: FSMContext):
     """Начать редактирование названия книги"""
     book_id = int(callback.data.split("_")[3])
-    await state.update_data(book_id=book_id)
+    await state.update_data(
+        book_id=book_id,
+        edit_message_id=callback.message.message_id,
+        edit_chat_id=callback.message.chat.id
+    )
 
     await callback.message.edit_text(
         "📝 Введите новое название книги:",
@@ -306,7 +540,11 @@ async def edit_book_name_start(callback: CallbackQuery, state: FSMContext):
 async def edit_book_description_start(callback: CallbackQuery, state: FSMContext):
     """Начать редактирование описания книги"""
     book_id = int(callback.data.split("_")[3])
-    await state.update_data(book_id=book_id)
+    await state.update_data(
+        book_id=book_id,
+        edit_message_id=callback.message.message_id,
+        edit_chat_id=callback.message.chat.id
+    )
 
     await callback.message.edit_text(
         "📝 Введите новое описание книги:",
@@ -330,6 +568,7 @@ async def edit_book_theme_start(callback: CallbackQuery, state: FSMContext):
     builder = InlineKeyboardBuilder()
     for theme in themes:
         builder.add(InlineKeyboardButton(text=theme.name, callback_data=f"update_book_theme_{book_id}_{theme.id}"))
+    builder.add(InlineKeyboardButton(text="🚫 Без темы", callback_data=f"update_book_theme_{book_id}_none"))
     builder.add(InlineKeyboardButton(text="🔙 Отмена", callback_data=f"edit_book_{book_id}"))
     builder.adjust(1)
 
@@ -365,6 +604,30 @@ async def update_book_theme(callback: CallbackQuery):
     await edit_book_menu(callback)
 
 
+@router.callback_query(F.data.regexp(r"^update_book_theme_\d+_none$"))
+@admin_required
+async def update_book_theme_none(callback: CallbackQuery):
+    """Убрать тему у книги"""
+    parts = callback.data.split("_")
+    book_id = int(parts[3])
+
+    book = await get_book_by_id(book_id)
+    if book:
+        book.theme_id = None
+        await update_book(book)
+
+        # Автоматически обновить все уроки этой книги во всех сериях
+        from bot.services.database_service import bulk_update_book_lessons
+        updated_count = await bulk_update_book_lessons(book_id, theme_id=None)
+
+        await callback.answer(f"✅ Тема убрана (обновлено уроков: {updated_count})", show_alert=True)
+    else:
+        await callback.answer("❌ Книга не найдена", show_alert=True)
+
+    # Возвращаемся в меню редактирования книги
+    await edit_book_menu(callback)
+
+
 @router.callback_query(F.data.startswith("edit_book_author_"))
 @admin_required
 async def edit_book_author_start(callback: CallbackQuery, state: FSMContext):
@@ -377,6 +640,7 @@ async def edit_book_author_start(callback: CallbackQuery, state: FSMContext):
     builder = InlineKeyboardBuilder()
     for author in authors:
         builder.add(InlineKeyboardButton(text=author.name, callback_data=f"update_book_author_{book_id}_{author.id}"))
+    builder.add(InlineKeyboardButton(text="🚫 Без автора", callback_data=f"update_book_author_{book_id}_none"))
     builder.add(InlineKeyboardButton(text="🔙 Отмена", callback_data=f"edit_book_{book_id}"))
     builder.adjust(1)
 
@@ -401,6 +665,24 @@ async def update_book_author(callback: CallbackQuery):
         await update_book(book)
 
     await callback.answer(f"✅ Автор книги обновлен", show_alert=True)
+
+    # Возвращаемся в меню редактирования книги
+    await edit_book_menu(callback)
+
+
+@router.callback_query(F.data.regexp(r"^update_book_author_\d+_none$"))
+@admin_required
+async def update_book_author_none(callback: CallbackQuery):
+    """Убрать автора у книги"""
+    parts = callback.data.split("_")
+    book_id = int(parts[3])
+
+    book = await get_book_by_id(book_id)
+    if book:
+        book.author_id = None
+        await update_book(book)
+
+    await callback.answer(f"✅ Автор убран", show_alert=True)
 
     # Возвращаемся в меню редактирования книги
     await edit_book_menu(callback)

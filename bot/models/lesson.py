@@ -38,10 +38,6 @@ class Lesson(Base):
     teacher_id: Mapped[int | None] = mapped_column(Integer, ForeignKey("lesson_teachers.id", ondelete="SET NULL"), nullable=True, index=True)
     theme_id: Mapped[int | None] = mapped_column(Integer, ForeignKey("themes.id", ondelete="SET NULL"), nullable=True, index=True)
 
-    # Старые поля series_year и series_name (оставляем для совместимости, удалим после миграции)
-    series_year: Mapped[int] = mapped_column(Integer, nullable=True, index=True)
-    series_name: Mapped[str | None] = mapped_column(String(255), nullable=True, index=True)
-
     title: Mapped[str] = mapped_column(String(255), nullable=False)
     description: Mapped[str] = mapped_column(Text, nullable=True)
     audio_path: Mapped[str] = mapped_column(String(500), nullable=True)
@@ -138,18 +134,13 @@ class Lesson(Base):
 
     @property
     def series_display(self) -> str:
-        """Отображение серии (поддержка старого и нового формата)"""
-        # Проверяем сначала по series_id (без загрузки relationship)
+        """Отображение серии"""
         if self.series_id:
             try:
-                if self.series:  # Попытка загрузить relationship
+                if self.series:
                     return self.series.display_name
             except Exception:
-                pass  # Session закрыта, используем fallback
-
-        # Fallback на старые поля для совместимости
-        if self.series_year and self.series_name:
-            return f"{self.series_year} - {self.series_name}"
+                pass  # Session закрыта
         return "Серия не указана"
 
     @property

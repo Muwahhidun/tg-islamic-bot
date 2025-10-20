@@ -2,7 +2,7 @@
 Сервис для работы с базой данных
 """
 from typing import Optional, List
-from sqlalchemy import select, update, delete, func
+from sqlalchemy import select, update, delete, func, and_
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm import joinedload
 
@@ -162,6 +162,15 @@ class ThemeService(DatabaseService):
             return result.unique().scalar_one_or_none()
     
     @staticmethod
+    async def get_theme_by_name(name: str) -> Optional[Theme]:
+        """Получение темы по названию"""
+        async with async_session_maker() as session:
+            result = await session.execute(
+                select(Theme).where(Theme.name == name)
+            )
+            return result.scalar_one_or_none()
+
+    @staticmethod
     async def create_theme(name: str, desc: str = None, sort_order: int = 0) -> Theme:
         """Создание новой темы"""
         async with async_session_maker() as session:
@@ -192,11 +201,23 @@ class BookAuthorService(DatabaseService):
     async def get_author_by_id(author_id: int) -> Optional[BookAuthor]:
         """Получение автора по ID"""
         async with async_session_maker() as session:
+            session.expire_on_commit = False
             result = await session.execute(
-                select(BookAuthor).where(BookAuthor.id == author_id)
+                select(BookAuthor)
+                .options(joinedload(BookAuthor.books))
+                .where(BookAuthor.id == author_id)
+            )
+            return result.unique().scalar_one_or_none()
+
+    @staticmethod
+    async def get_author_by_name(name: str) -> Optional[BookAuthor]:
+        """Получение автора по имени"""
+        async with async_session_maker() as session:
+            result = await session.execute(
+                select(BookAuthor).where(BookAuthor.name == name)
             )
             return result.scalar_one_or_none()
-    
+
     @staticmethod
     async def create_author(
         name: str,
@@ -238,7 +259,16 @@ class LessonTeacherService(DatabaseService):
                 select(LessonTeacher).where(LessonTeacher.id == teacher_id)
             )
             return result.scalar_one_or_none()
-    
+
+    @staticmethod
+    async def get_teacher_by_name(name: str) -> Optional[LessonTeacher]:
+        """Получение преподавателя по имени"""
+        async with async_session_maker() as session:
+            result = await session.execute(
+                select(LessonTeacher).where(LessonTeacher.name == name)
+            )
+            return result.scalar_one_or_none()
+
     @staticmethod
     async def create_teacher(name: str, biography: str = None) -> LessonTeacher:
         """Создание нового преподавателя"""
@@ -451,6 +481,11 @@ async def get_theme_by_id(theme_id: int) -> Optional[Theme]:
     return await ThemeService.get_theme_by_id(theme_id)
 
 
+async def get_theme_by_name(name: str) -> Optional[Theme]:
+    """Получение темы по названию"""
+    return await ThemeService.get_theme_by_name(name)
+
+
 async def create_theme(name: str, desc: str = None, is_active: bool = True, sort_order: int = 0) -> Theme:
     """Создание новой темы"""
     async with async_session_maker() as session:
@@ -496,6 +531,11 @@ async def get_book_author_by_id(author_id: int) -> Optional[BookAuthor]:
     return await BookAuthorService.get_author_by_id(author_id)
 
 
+async def get_book_author_by_name(name: str) -> Optional[BookAuthor]:
+    """Получение автора книги по имени"""
+    return await BookAuthorService.get_author_by_name(name)
+
+
 async def create_book_author(name: str, biography: str = None, is_active: bool = True) -> BookAuthor:
     """Создание нового автора книги"""
     async with async_session_maker() as session:
@@ -538,6 +578,11 @@ async def get_all_lesson_teachers() -> List[LessonTeacher]:
 async def get_lesson_teacher_by_id(teacher_id: int) -> Optional[LessonTeacher]:
     """Получение преподавателя по ID"""
     return await LessonTeacherService.get_teacher_by_id(teacher_id)
+
+
+async def get_lesson_teacher_by_name(name: str) -> Optional[LessonTeacher]:
+    """Получение преподавателя по имени"""
+    return await LessonTeacherService.get_teacher_by_name(name)
 
 
 async def create_lesson_teacher(name: str, biography: str = None, is_active: bool = True) -> LessonTeacher:
@@ -640,8 +685,7 @@ async def get_lesson_by_id(lesson_id: int) -> Optional[Lesson]:
 
 async def create_lesson(
     title: str,
-    series_year: int,
-    series_name: str,
+    series_id: int,  # Обязательное поле - связь с серией
     description: str = None,
     audio_file_path: str = None,
     duration_seconds: int = None,
@@ -657,8 +701,7 @@ async def create_lesson(
         lesson = Lesson(
             title=title,
             description=description,
-            series_year=series_year,
-            series_name=series_name,
+            series_id=series_id,
             audio_path=audio_file_path,
             duration_seconds=duration_seconds,
             lesson_number=lesson_number,
@@ -742,6 +785,36 @@ async def get_series_by_id(series_id: int) -> Optional[LessonSeries]:
             .where(LessonSeries.id == series_id)
         )
         return result.unique().scalar_one_or_none()
+
+
+async def check_lesson_number_exists(series_id: int, lesson_number: int, exclude_lesson_id: Optional[int] = None) -> bool:
+    """
+    Проверка существования урока с таким номером в серии
+
+    Args:
+        series_id: ID серии
+        lesson_number: Номер урока для проверки
+        exclude_lesson_id: ID урока, который нужно исключить из проверки (для редактирования)
+
+    Returns:
+        True если урок с таким номером уже существует в серии, False если нет
+    """
+    async with async_session_maker() as session:
+        query = select(Lesson).where(
+            and_(
+                Lesson.series_id == series_id,
+                Lesson.lesson_number == lesson_number
+            )
+        )
+
+        # Если редактируем урок, исключаем его из проверки
+        if exclude_lesson_id:
+            query = query.where(Lesson.id != exclude_lesson_id)
+
+        result = await session.execute(query)
+        existing_lesson = result.scalar_one_or_none()
+
+        return existing_lesson is not None
 
 
 async def create_lesson_series(
