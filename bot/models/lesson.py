@@ -41,6 +41,7 @@ class Lesson(Base):
     title: Mapped[str] = mapped_column(String(255), nullable=False)
     description: Mapped[str] = mapped_column(Text, nullable=True)
     audio_path: Mapped[str] = mapped_column(String(500), nullable=True)
+    telegram_file_id: Mapped[str | None] = mapped_column(String(200), nullable=True)  # Кеш file_id для быстрой отправки
     lesson_number: Mapped[int] = mapped_column(Integer, nullable=True)
     duration_seconds: Mapped[int] = mapped_column(Integer, nullable=True)
     tags: Mapped[str] = mapped_column(String(500), nullable=True)

@@ -11,6 +11,7 @@ from bot.models import (
     Book, Lesson, LessonSeries, async_session_maker,
     Test, TestQuestion, TestAttempt
 )
+from bot.utils.timezone_utils import get_moscow_now
 
 
 class DatabaseService:
@@ -377,7 +378,23 @@ class LessonService(DatabaseService):
                 .order_by(Lesson.lesson_number)
             )
             return result.scalars().all()
-    
+
+    @staticmethod
+    async def get_lessons_by_series(series_id: int) -> List[Lesson]:
+        """Получение активных уроков по серии"""
+        async with async_session_maker() as session:
+            result = await session.execute(
+                select(Lesson)
+                .options(
+                    joinedload(Lesson.teacher),
+                    joinedload(Lesson.book).joinedload(Book.author),
+                    joinedload(Lesson.series)
+                )
+                .where(Lesson.series_id == series_id, Lesson.is_active == True)
+                .order_by(Lesson.lesson_number)
+            )
+            return result.scalars().all()
+
     @staticmethod
     async def get_lesson_by_id(lesson_id: int) -> Optional[Lesson]:
         """Получение урока по ID"""
@@ -767,6 +784,24 @@ async def get_series_by_teacher(teacher_id: int) -> List[LessonSeries]:
                 joinedload(LessonSeries.lessons)
             )
             .where(LessonSeries.teacher_id == teacher_id)
+            .order_by(LessonSeries.year.desc(), LessonSeries.name)
+        )
+        return result.scalars().unique().all()
+
+
+async def get_series_by_book(book_id: int) -> List[LessonSeries]:
+    """Получение всех активных серий книги"""
+    async with async_session_maker() as session:
+        result = await session.execute(
+            select(LessonSeries)
+            .options(
+                joinedload(LessonSeries.teacher),
+                joinedload(LessonSeries.book),
+                joinedload(LessonSeries.theme),
+                joinedload(LessonSeries.lessons)
+            )
+            .where(LessonSeries.book_id == book_id)
+            .where(LessonSeries.is_active == True)
             .order_by(LessonSeries.year.desc(), LessonSeries.name)
         )
         return result.scalars().unique().all()
@@ -1219,7 +1254,6 @@ async def get_best_attempt(user_id: int, test_id: int) -> Optional[TestAttempt]:
 async def create_attempt(
     user_id: int,
     test_id: int,
-    lesson_id: Optional[int],
     score: int,
     max_score: int,
     passed: bool,
@@ -1231,7 +1265,6 @@ async def create_attempt(
         attempt = TestAttempt(
             user_id=user_id,
             test_id=test_id,
-            lesson_id=lesson_id,
             score=score,
             max_score=max_score,
             passed=passed,

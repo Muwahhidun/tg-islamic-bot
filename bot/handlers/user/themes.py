@@ -76,7 +76,7 @@ async def show_books_handler(callback: CallbackQuery, state: FSMContext):
         await callback.answer("📭 В этой теме пока нет книг", show_alert=True)
         return
 
-    text = f"📖 Тема: {theme.name}\n\nВыберите книгу:"
+    text = f"📚 Тема: {theme.name}\n\nВыберите книгу:"
     keyboard = get_books_keyboard(books)
 
     await callback.message.edit_text(text, reply_markup=keyboard)
