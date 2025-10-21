@@ -61,8 +61,17 @@ async def play_lesson(callback: CallbackQuery):
             questions = await get_questions_by_lesson(test.id, lesson.id)
             has_test = len(questions) > 0
 
+    # Проверяем, есть ли закладка на этот урок
+    from bot.services.database_service import get_bookmark_by_user_and_lesson, get_user_by_telegram_id
+    has_bookmark = False
+    user = await get_user_by_telegram_id(callback.from_user.id)
+    if user:
+        bookmark = await get_bookmark_by_user_and_lesson(user.id, lesson_id)
+        if bookmark:
+            has_bookmark = True
+
     # Клавиатура управления
-    keyboard = get_lesson_control_keyboard(lesson, has_test=has_test)
+    keyboard = get_lesson_control_keyboard(lesson, has_test=has_test, has_bookmark=has_bookmark)
 
     # ПАТТЕРН ОДНОГО ОКНА: удаляем предыдущее сообщение
     try:

@@ -13,6 +13,7 @@ from bot.models.lesson import Lesson
 from bot.models.test import Test
 from bot.models.test_question import TestQuestion
 from bot.models.test_attempt import TestAttempt
+from bot.models.bookmark import Bookmark
 
 __all__ = [
     "Base",
@@ -28,5 +29,6 @@ __all__ = [
     "Lesson",
     "Test",
     "TestQuestion",
-    "TestAttempt"
+    "TestAttempt",
+    "Bookmark"
 ]

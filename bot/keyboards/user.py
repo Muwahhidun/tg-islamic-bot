@@ -18,6 +18,7 @@ def get_main_keyboard(is_admin: bool = False) -> InlineKeyboardMarkup:
     """
     buttons = [
         [InlineKeyboardButton(text="📚 Список тем", callback_data="show_themes")],
+        [InlineKeyboardButton(text="📌 Закладки", callback_data="bookmarks")],
         [InlineKeyboardButton(text="🔍 Поиск уроков", callback_data="search_lessons")],
         [InlineKeyboardButton(text="ℹ️ О проекте", callback_data="about_project")],
         [InlineKeyboardButton(text="🆔 Мой ID", callback_data="get_my_id")],
@@ -238,13 +239,14 @@ def get_lessons_keyboard(lessons: list[Lesson], series_id: int, has_tests: dict 
     return InlineKeyboardMarkup(inline_keyboard=keyboard)
 
 
-def get_lesson_control_keyboard(lesson: Lesson, has_test: bool = False) -> InlineKeyboardMarkup:
+def get_lesson_control_keyboard(lesson: Lesson, has_test: bool = False, has_bookmark: bool = False) -> InlineKeyboardMarkup:
     """
     Клавиатура управления воспроизведением урока
 
     Args:
         lesson: Объект урока
         has_test: Есть ли тест для серии урока
+        has_bookmark: Есть ли закладка на этот урок
 
     Returns:
         InlineKeyboardMarkup: Клавиатура управления
@@ -263,7 +265,7 @@ def get_lesson_control_keyboard(lesson: Lesson, has_test: bool = False) -> Inlin
     ))
     keyboard.append(nav_buttons)
 
-    # Вторая строка - информация о книге и авторе (горизонтально)
+    # Следующая строка - информация о книге и авторе (горизонтально)
     book_author_buttons = []
     if lesson.book:
         book_author_buttons.append(InlineKeyboardButton(
@@ -290,6 +292,18 @@ def get_lesson_control_keyboard(lesson: Lesson, has_test: bool = False) -> Inlin
         keyboard.append([InlineKeyboardButton(
             text="🎓 Пройти тест по уроку",
             callback_data=f"lesson_test_{lesson.id}"
+        )])
+
+    # Кнопка закладки (после теста)
+    if has_bookmark:
+        keyboard.append([InlineKeyboardButton(
+            text="➖ В закладках",
+            callback_data=f"remove_bookmark_{lesson.id}"
+        )])
+    else:
+        keyboard.append([InlineKeyboardButton(
+            text="➕ Добавить в закладки",
+            callback_data=f"add_bookmark_{lesson.id}"
         )])
 
     # Последняя строка - возврат

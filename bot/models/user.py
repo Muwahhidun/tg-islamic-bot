@@ -13,6 +13,7 @@ from bot.utils.timezone_utils import get_moscow_now
 if TYPE_CHECKING:
     from bot.models.role import Role
     from bot.models.test_attempt import TestAttempt
+    from bot.models.bookmark import Bookmark
 
 
 class User(Base):
@@ -33,6 +34,7 @@ class User(Base):
     # Отношения
     role: Mapped["Role"] = relationship(back_populates="users")
     test_attempts: Mapped[list["TestAttempt"]] = relationship(back_populates="user", cascade="all, delete-orphan")
+    bookmarks: Mapped[list["Bookmark"]] = relationship(back_populates="user", cascade="all, delete-orphan")
     
     def __repr__(self) -> str:
         return f"<User(id={self.id}, telegram_id={self.telegram_id}, username='{self.username}')>"

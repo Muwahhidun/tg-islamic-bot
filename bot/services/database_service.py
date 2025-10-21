@@ -9,7 +9,7 @@ from sqlalchemy.orm import joinedload
 from bot.models import (
     User, Role, Theme, BookAuthor, LessonTeacher,
     Book, Lesson, LessonSeries, async_session_maker,
-    Test, TestQuestion, TestAttempt
+    Test, TestQuestion, TestAttempt, Bookmark
 )
 from bot.utils.timezone_utils import get_moscow_now
 
@@ -1284,3 +1284,106 @@ async def update_attempt(attempt: TestAttempt) -> TestAttempt:
         await session.merge(attempt)
         await session.commit()
         return attempt
+
+
+# ==================== ЗАКЛАДКИ ====================
+
+async def get_bookmarks_by_user(user_id: int) -> list[Bookmark]:
+    """Получить все закладки пользователя (сортировка: новые сверху)"""
+    async with async_session_maker() as session:
+        result = await session.execute(
+            select(Bookmark)
+            .options(
+                joinedload(Bookmark.user),
+                joinedload(Bookmark.lesson).joinedload(Lesson.series),
+                joinedload(Bookmark.lesson).joinedload(Lesson.book).joinedload(Book.theme),
+                joinedload(Bookmark.lesson).joinedload(Lesson.book).joinedload(Book.author),
+                joinedload(Bookmark.lesson).joinedload(Lesson.teacher)
+            )
+            .where(Bookmark.user_id == user_id)
+            .order_by(Bookmark.created_at.desc())
+        )
+        return result.scalars().unique().all()
+
+
+async def get_bookmark_by_id(bookmark_id: int) -> Bookmark | None:
+    """Получить закладку по ID"""
+    async with async_session_maker() as session:
+        result = await session.execute(
+            select(Bookmark)
+            .options(
+                joinedload(Bookmark.lesson).joinedload(Lesson.series),
+                joinedload(Bookmark.lesson).joinedload(Lesson.book).joinedload(Book.theme),
+                joinedload(Bookmark.lesson).joinedload(Lesson.book).joinedload(Book.author),
+                joinedload(Bookmark.lesson).joinedload(Lesson.teacher)
+            )
+            .where(Bookmark.id == bookmark_id)
+        )
+        return result.scalar_one_or_none()
+
+
+async def get_bookmark_by_user_and_lesson(user_id: int, lesson_id: int) -> Bookmark | None:
+    """Проверить, есть ли закладка на урок у пользователя"""
+    async with async_session_maker() as session:
+        result = await session.execute(
+            select(Bookmark)
+            .options(
+                joinedload(Bookmark.user),
+                joinedload(Bookmark.lesson).joinedload(Lesson.series),
+                joinedload(Bookmark.lesson).joinedload(Lesson.book).joinedload(Book.theme),
+                joinedload(Bookmark.lesson).joinedload(Lesson.book).joinedload(Book.author),
+                joinedload(Bookmark.lesson).joinedload(Lesson.teacher)
+            )
+            .where(
+                Bookmark.user_id == user_id,
+                Bookmark.lesson_id == lesson_id
+            )
+        )
+        return result.scalar_one_or_none()
+
+
+async def count_user_bookmarks(user_id: int) -> int:
+    """Подсчитать количество закладок пользователя"""
+    async with async_session_maker() as session:
+        result = await session.execute(
+            select(func.count(Bookmark.id))
+            .where(Bookmark.user_id == user_id)
+        )
+        return result.scalar_one()
+
+
+async def create_bookmark(user_id: int, lesson_id: int, custom_name: str) -> Bookmark:
+    """Создать закладку"""
+    async with async_session_maker() as session:
+        bookmark = Bookmark(
+            user_id=user_id,
+            lesson_id=lesson_id,
+            custom_name=custom_name,
+            created_at=get_moscow_now()
+        )
+        session.add(bookmark)
+        await session.commit()
+        await session.refresh(bookmark)
+        return bookmark
+
+
+async def update_bookmark_name(bookmark_id: int, new_name: str) -> Bookmark | None:
+    """Переименовать закладку"""
+    async with async_session_maker() as session:
+        bookmark = await session.get(Bookmark, bookmark_id)
+        if bookmark:
+            bookmark.custom_name = new_name
+            await session.commit()
+            await session.refresh(bookmark)
+        return bookmark
+
+
+async def delete_bookmark(bookmark_id: int) -> bool:
+    """Удалить закладку"""
+    async with async_session_maker() as session:
+        bookmark = await session.get(Bookmark, bookmark_id)
+        if bookmark:
+            await session.delete(bookmark)
+            await session.commit()
+            return True
+        return False
