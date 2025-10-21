@@ -12,6 +12,7 @@ from bot.services.database_service import (
     get_all_books,
     get_all_lessons,
     get_all_lesson_series,
+    get_all_tests,
 )
 
 router = Router()
@@ -27,6 +28,7 @@ async def admin_stats(callback: CallbackQuery):
     books = await get_all_books()
     series = await get_all_lesson_series()
     lessons = await get_all_lessons()
+    tests = await get_all_tests()
 
     active_themes = len([t for t in themes if t.is_active])
     active_authors = len([a for a in authors if a.is_active])
@@ -34,6 +36,7 @@ async def admin_stats(callback: CallbackQuery):
     active_books = len([b for b in books if b.is_active])
     active_series = len([s for s in series if s.is_active])
     active_lessons = len([l for l in lessons if l.is_active])
+    active_tests = len([t for t in tests if t.is_active])
 
     # Подсчет общей длительности в секундах и конвертация в минуты
     total_duration_seconds = sum(l.duration_seconds or 0 for l in lessons if l.is_active)
@@ -49,8 +52,9 @@ async def admin_stats(callback: CallbackQuery):
         f"✍️ Авторы: {active_authors}/{len(authors)}\n"
         f"👤 Преподаватели: {active_teachers}/{len(teachers)}\n"
         f"📖 Книги: {active_books}/{len(books)}\n"
-        f"📑 Серии: {active_series}/{len(series)}\n"
+        f"📁 Серии: {active_series}/{len(series)}\n"
         f"🎧 Уроки: {active_lessons}/{len(lessons)}\n"
+        f"🎓 Тесты: {active_tests}/{len(tests)}\n"
         f"⏱️ Общая длительность: {duration_text}\n\n"
         f"🔥 Активные элементы / Всего элементов"
     )

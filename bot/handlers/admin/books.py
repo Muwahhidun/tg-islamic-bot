@@ -147,8 +147,8 @@ async def add_book_name(message: Message, state: FSMContext):
 
             builder = InlineKeyboardBuilder()
             builder.add(InlineKeyboardButton(text="✏️ Изменить название", callback_data=f"edit_book_name_{book.id}"))
-            builder.add(InlineKeyboardButton(text="📝 Изменить описание", callback_data=f"edit_book_description_{book.id}"))
-            builder.add(InlineKeyboardButton(text="🏷️ Изменить тему", callback_data=f"edit_book_theme_{book.id}"))
+            builder.add(InlineKeyboardButton(text="📄 Изменить описание", callback_data=f"edit_book_description_{book.id}"))
+            builder.add(InlineKeyboardButton(text="📚 Изменить тему", callback_data=f"edit_book_theme_{book.id}"))
             builder.add(InlineKeyboardButton(text="✍️ Изменить автора", callback_data=f"edit_book_author_{book.id}"))
             toggle_text = "❌ Деактивировать" if book.is_active else "✅ Активировать"
             builder.add(InlineKeyboardButton(text=toggle_text, callback_data=f"toggle_book_{book.id}"))
@@ -277,8 +277,8 @@ async def add_book_description(message: Message, state: FSMContext):
 
             builder = InlineKeyboardBuilder()
             builder.add(InlineKeyboardButton(text="✏️ Изменить название", callback_data=f"edit_book_name_{book.id}"))
-            builder.add(InlineKeyboardButton(text="📝 Изменить описание", callback_data=f"edit_book_description_{book.id}"))
-            builder.add(InlineKeyboardButton(text="🏷️ Изменить тему", callback_data=f"edit_book_theme_{book.id}"))
+            builder.add(InlineKeyboardButton(text="📄 Изменить описание", callback_data=f"edit_book_description_{book.id}"))
+            builder.add(InlineKeyboardButton(text="📚 Изменить тему", callback_data=f"edit_book_theme_{book.id}"))
             builder.add(InlineKeyboardButton(text="✍️ Изменить автора", callback_data=f"edit_book_author_{book.id}"))
             toggle_text = "❌ Деактивировать" if book.is_active else "✅ Активировать"
             builder.add(InlineKeyboardButton(text=toggle_text, callback_data=f"toggle_book_{book.id}"))
@@ -783,8 +783,8 @@ async def edit_book_menu(callback: CallbackQuery):
 
     builder = InlineKeyboardBuilder()
     builder.add(InlineKeyboardButton(text="✏️ Изменить название", callback_data=f"edit_book_name_{book.id}"))
-    builder.add(InlineKeyboardButton(text="📝 Изменить описание", callback_data=f"edit_book_description_{book.id}"))
-    builder.add(InlineKeyboardButton(text="🏷️ Изменить тему", callback_data=f"edit_book_theme_{book.id}"))
+    builder.add(InlineKeyboardButton(text="📄 Изменить описание", callback_data=f"edit_book_description_{book.id}"))
+    builder.add(InlineKeyboardButton(text="📚 Изменить тему", callback_data=f"edit_book_theme_{book.id}"))
     builder.add(InlineKeyboardButton(text="✍️ Изменить автора", callback_data=f"edit_book_author_{book.id}"))
 
     # Кнопка активации/деактивации

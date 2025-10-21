@@ -110,7 +110,7 @@ async def show_teacher_series(callback: CallbackQuery):
         await callback.message.edit_text(
             f"🎧 <b>Уроки: {await _get_teacher_name(teacher_id)}</b>\n\n"
             "❌ У этого преподавателя пока нет серий.\n\n"
-            "Создайте серию в разделе '📑 Управление сериями'",
+            "Создайте серию в разделе '📁 Управление сериями'",
             reply_markup=InlineKeyboardMarkup(inline_keyboard=[[
                 InlineKeyboardButton(text="🔙 Назад", callback_data="admin_lessons")
             ]])
@@ -130,7 +130,7 @@ async def show_teacher_series(callback: CallbackQuery):
             lessons_count = len(result.scalars().all())
 
         # Формируем текст кнопки
-        button_text = f"📚 {series.year} - {series.name}"
+        button_text = f"📁 {series.year} - {series.name}"
         if series.book_title:
             button_text += f" ({series.book_title})"
         button_text += f" • {lessons_count} урок."
@@ -216,7 +216,7 @@ async def show_lessons_without_theme(callback: CallbackQuery):
     builder.adjust(1)
 
     await callback.message.edit_text(
-        "📑 <b>Уроки без темы</b>\n\n"
+        "📚 <b>Уроки без темы</b>\n\n"
         "Выберите книгу:",
         reply_markup=builder.as_markup()
     )
@@ -278,9 +278,9 @@ async def show_no_theme_no_book_lessons(callback: CallbackQuery):
         builder.adjust(1)
 
         await callback.message.edit_text(
-            f"📑 <b>Без темы</b>\n"
+            f"📚 <b>Без темы</b>\n"
             f"📕 Без книги\n"
-            f"📚 Серия: {series_data['year']} - {series_data['name']}\n\n"
+            f"📁 Серия: {series_data['year']} - {series_data['name']}\n\n"
             "Выберите урок:",
             reply_markup=builder.as_markup()
         )
@@ -297,7 +297,7 @@ async def show_no_theme_no_book_lessons(callback: CallbackQuery):
         builder.adjust(1)
 
         await callback.message.edit_text(
-            f"📑 <b>Без темы</b>\n"
+            f"📚 <b>Без темы</b>\n"
             f"📕 Без книги\n\n"
             "Выберите серию:",
             reply_markup=builder.as_markup()
@@ -364,7 +364,7 @@ async def show_no_theme_book_series(callback: CallbackQuery):
 
         await callback.message.edit_text(
             f"📖 <b>{book_name}</b>\n"
-            f"📚 Серия: {series_data['year']} - {series_data['name']}\n\n"
+            f"📁 Серия: {series_data['year']} - {series_data['name']}\n\n"
             "Выберите урок:",
             reply_markup=builder.as_markup()
         )
@@ -562,9 +562,9 @@ async def show_theme_lessons_without_book(callback: CallbackQuery):
         builder.adjust(1)
 
         await callback.message.edit_text(
-            f"📑 <b>{theme_name or 'Тема'}</b>\n"
+            f"📚 <b>{theme_name or 'Тема'}</b>\n"
             f"📕 Без книги\n"
-            f"📚 Серия: {series_data['year']} - {series_data['name']}\n\n"
+            f"📁 Серия: {series_data['year']} - {series_data['name']}\n\n"
             f"Всего уроков: {len(series_data['lessons'])}",
             reply_markup=builder.as_markup()
         )
@@ -581,7 +581,7 @@ async def show_theme_lessons_without_book(callback: CallbackQuery):
         builder.adjust(1)
 
         await callback.message.edit_text(
-            f"📑 <b>{theme_name or 'Тема'}</b>\n"
+            f"📚 <b>{theme_name or 'Тема'}</b>\n"
             f"📕 Без книги\n\n"
             "Выберите серию:",
             reply_markup=builder.as_markup()
@@ -763,14 +763,14 @@ async def show_series_lessons_by_id(callback: CallbackQuery):
         text = (
             f"🎧 <b>Уроки: {teacher_name}</b>\n"
             f"📖 Книга: {book_name or 'Без книги'}\n"
-            f"📚 Серия: {series.year} - {series.name}\n\n"
+            f"📁 Серия: {series.year} - {series.name}\n\n"
             f"Уроков в серии: {len(lessons_data)}"
         )
     else:
         text = (
             f"🎧 <b>Уроки: {teacher_name}</b>\n"
             f"📖 Книга: {book_name or 'Без книги'}\n"
-            f"📚 Серия: {series.year} - {series.name}\n\n"
+            f"📁 Серия: {series.year} - {series.name}\n\n"
             f"В этой серии пока нет уроков."
         )
 
@@ -1301,13 +1301,13 @@ def build_lesson_info_and_menu(lesson) -> tuple[str, InlineKeyboardMarkup]:
     """Построить информацию и меню редактирования урока"""
     # Формируем информацию об уроке
     info = f"🎧 <b>{lesson.display_title}</b>\n\n"
-    info += f"📚 Серия: {lesson.series_display}\n"
-    info += f"📑 Тема: {lesson.theme_name}\n"
+    info += f"📁 Серия: {lesson.series_display}\n"
+    info += f"📚 Тема: {lesson.theme_name}\n"
     info += f"📖 Книга: {lesson.book_title}\n"
     info += f"👤 Преподаватель: {lesson.teacher_name}\n"
 
     if lesson.description:
-        info += f"📝 Описание: {lesson.description}\n"
+        info += f"📄 Описание: {lesson.description}\n"
 
     if lesson.duration_seconds:
         info += f"⏱ Длительность: {lesson.formatted_duration}\n"
@@ -1573,7 +1573,7 @@ async def edit_lesson_description_handler(callback: CallbackQuery, state: FSMCon
     current_desc = lesson.description if lesson.description else "Нет описания"
 
     await callback.message.edit_text(
-        f"📝 <b>Редактирование описания урока</b>\n\n"
+        f"📄 <b>Редактирование описания урока</b>\n\n"
         f"Текущее описание: {current_desc}\n\n"
         f"Введите новое описание урока:",
         reply_markup=InlineKeyboardMarkup(inline_keyboard=[
@@ -1875,12 +1875,12 @@ async def edit_lesson_theme_handler(callback: CallbackQuery):
             callback_data=f"update_lesson_theme_{lesson_id}_{theme.id}"
         ))
 
-    builder.add(InlineKeyboardButton(text="📑 Без темы", callback_data=f"update_lesson_theme_{lesson_id}_none"))
+    builder.add(InlineKeyboardButton(text="📚 Без темы", callback_data=f"update_lesson_theme_{lesson_id}_none"))
     builder.add(InlineKeyboardButton(text="🔙 Отмена", callback_data=f"edit_lesson_{lesson_id}"))
     builder.adjust(1)
 
     await callback.message.edit_text(
-        f"📑 <b>Изменить тему урока</b>\n\n"
+        f"📚 <b>Изменить тему урока</b>\n\n"
         f"Текущая тема: {lesson.theme_name}\n\n"
         "Выберите новую тему:",
         reply_markup=builder.as_markup()

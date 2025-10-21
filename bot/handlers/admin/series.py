@@ -49,7 +49,7 @@ class SeriesStates(StatesGroup):
 async def series_menu(callback: CallbackQuery):
     """Главное меню управления сериями"""
     text = (
-        "📚 <b>Управление сериями уроков</b>\n\n"
+        "📁 <b>Управление сериями уроков</b>\n\n"
         "Выберите преподавателя для просмотра его серий:"
     )
 
@@ -89,11 +89,11 @@ async def show_teacher_series(callback: CallbackQuery):
     if not series_list:
         # Нет серий - показываем пустое меню с кнопкой создания
         text = (
-            f"📚 <b>Серии преподавателя {teacher_name}</b>\n\n"
+            f"📁 <b>Серии преподавателя {teacher_name}</b>\n\n"
             f"У этого преподавателя пока нет серий."
         )
     else:
-        text = f"📚 <b>Серии преподавателя {teacher_name}</b>\n\n"
+        text = f"📁 <b>Серии преподавателя {teacher_name}</b>\n\n"
 
     builder = InlineKeyboardBuilder()
 
@@ -134,11 +134,11 @@ async def view_series(callback: CallbackQuery):
     builder = InlineKeyboardBuilder()
     builder.add(InlineKeyboardButton(text="✏️ Редактировать название", callback_data=f"series_edit_name_{series.id}"))
     builder.add(InlineKeyboardButton(text="✏️ Редактировать год", callback_data=f"series_edit_year_{series.id}"))
-    builder.add(InlineKeyboardButton(text="✏️ Редактировать описание", callback_data=f"series_edit_desc_{series.id}"))
+    builder.add(InlineKeyboardButton(text="📄 Редактировать описание", callback_data=f"series_edit_desc_{series.id}"))
     builder.add(InlineKeyboardButton(text="📖 Изменить книгу", callback_data=f"series_edit_book_{series.id}"))
 
     # Всегда показываем кнопку "Изменить тему" - логика внутри обработчика
-    builder.add(InlineKeyboardButton(text="📑 Изменить тему", callback_data=f"series_edit_theme_{series.id}"))
+    builder.add(InlineKeyboardButton(text="📚 Изменить тему", callback_data=f"series_edit_theme_{series.id}"))
 
     if series.is_completed:
         builder.add(InlineKeyboardButton(text="🔄 Отметить как незавершённую", callback_data=f"series_toggle_completed_{series.id}"))
@@ -223,9 +223,9 @@ async def save_series_name(message: Message, state: FSMContext):
     builder = InlineKeyboardBuilder()
     builder.add(InlineKeyboardButton(text="✏️ Редактировать название", callback_data=f"series_edit_name_{series.id}"))
     builder.add(InlineKeyboardButton(text="✏️ Редактировать год", callback_data=f"series_edit_year_{series.id}"))
-    builder.add(InlineKeyboardButton(text="✏️ Редактировать описание", callback_data=f"series_edit_desc_{series.id}"))
+    builder.add(InlineKeyboardButton(text="📄 Редактировать описание", callback_data=f"series_edit_desc_{series.id}"))
     builder.add(InlineKeyboardButton(text="📖 Изменить книгу", callback_data=f"series_edit_book_{series.id}"))
-    builder.add(InlineKeyboardButton(text="📑 Изменить тему", callback_data=f"series_edit_theme_{series.id}"))
+    builder.add(InlineKeyboardButton(text="📚 Изменить тему", callback_data=f"series_edit_theme_{series.id}"))
 
     if series.is_completed:
         builder.add(InlineKeyboardButton(text="🔄 Отметить как незавершённую", callback_data=f"series_toggle_completed_{series.id}"))
@@ -437,9 +437,9 @@ async def save_series_year(message: Message, state: FSMContext):
     builder = InlineKeyboardBuilder()
     builder.add(InlineKeyboardButton(text="✏️ Редактировать название", callback_data=f"series_edit_name_{series.id}"))
     builder.add(InlineKeyboardButton(text="✏️ Редактировать год", callback_data=f"series_edit_year_{series.id}"))
-    builder.add(InlineKeyboardButton(text="✏️ Редактировать описание", callback_data=f"series_edit_desc_{series.id}"))
+    builder.add(InlineKeyboardButton(text="📄 Редактировать описание", callback_data=f"series_edit_desc_{series.id}"))
     builder.add(InlineKeyboardButton(text="📖 Изменить книгу", callback_data=f"series_edit_book_{series.id}"))
-    builder.add(InlineKeyboardButton(text="📑 Изменить тему", callback_data=f"series_edit_theme_{series.id}"))
+    builder.add(InlineKeyboardButton(text="📚 Изменить тему", callback_data=f"series_edit_theme_{series.id}"))
 
     if series.is_completed:
         builder.add(InlineKeyboardButton(text="🔄 Отметить как незавершённую", callback_data=f"series_toggle_completed_{series.id}"))
@@ -536,9 +536,9 @@ async def save_series_description(message: Message, state: FSMContext):
     builder = InlineKeyboardBuilder()
     builder.add(InlineKeyboardButton(text="✏️ Редактировать название", callback_data=f"series_edit_name_{series.id}"))
     builder.add(InlineKeyboardButton(text="✏️ Редактировать год", callback_data=f"series_edit_year_{series.id}"))
-    builder.add(InlineKeyboardButton(text="✏️ Редактировать описание", callback_data=f"series_edit_desc_{series.id}"))
+    builder.add(InlineKeyboardButton(text="📄 Редактировать описание", callback_data=f"series_edit_desc_{series.id}"))
     builder.add(InlineKeyboardButton(text="📖 Изменить книгу", callback_data=f"series_edit_book_{series.id}"))
-    builder.add(InlineKeyboardButton(text="📑 Изменить тему", callback_data=f"series_edit_theme_{series.id}"))
+    builder.add(InlineKeyboardButton(text="📚 Изменить тему", callback_data=f"series_edit_theme_{series.id}"))
 
     if series.is_completed:
         builder.add(InlineKeyboardButton(text="🔄 Отметить как незавершённую", callback_data=f"series_toggle_completed_{series.id}"))
@@ -639,9 +639,9 @@ async def set_series_book(callback: CallbackQuery, state: FSMContext):
     builder = InlineKeyboardBuilder()
     builder.add(InlineKeyboardButton(text="✏️ Редактировать название", callback_data=f"series_edit_name_{series.id}"))
     builder.add(InlineKeyboardButton(text="✏️ Редактировать год", callback_data=f"series_edit_year_{series.id}"))
-    builder.add(InlineKeyboardButton(text="✏️ Редактировать описание", callback_data=f"series_edit_desc_{series.id}"))
+    builder.add(InlineKeyboardButton(text="📄 Редактировать описание", callback_data=f"series_edit_desc_{series.id}"))
     builder.add(InlineKeyboardButton(text="📖 Изменить книгу", callback_data=f"series_edit_book_{series.id}"))
-    builder.add(InlineKeyboardButton(text="📑 Изменить тему", callback_data=f"series_edit_theme_{series.id}"))
+    builder.add(InlineKeyboardButton(text="📚 Изменить тему", callback_data=f"series_edit_theme_{series.id}"))
 
     if series.is_completed:
         builder.add(InlineKeyboardButton(text="🔄 Отметить как незавершённую", callback_data=f"series_toggle_completed_{series.id}"))
@@ -702,7 +702,7 @@ async def edit_series_theme(callback: CallbackQuery, state: FSMContext):
     else:
         # Книги нет или у книги нет темы - обычное изменение темы серии
         text = (
-            f"📑 <b>Изменение темы для серии</b>\n\n"
+            f"📁 <b>Изменение темы для серии</b>\n\n"
             f"Серия: <b>{series.year} - {series.name}</b>\n"
             f"Текущая тема: <b>{series.theme_name or 'не указана'}</b>\n\n"
             f"Выберите новую тему:"
@@ -779,9 +779,9 @@ async def set_series_theme(callback: CallbackQuery, state: FSMContext):
     builder = InlineKeyboardBuilder()
     builder.add(InlineKeyboardButton(text="✏️ Редактировать название", callback_data=f"series_edit_name_{series.id}"))
     builder.add(InlineKeyboardButton(text="✏️ Редактировать год", callback_data=f"series_edit_year_{series.id}"))
-    builder.add(InlineKeyboardButton(text="✏️ Редактировать описание", callback_data=f"series_edit_desc_{series.id}"))
+    builder.add(InlineKeyboardButton(text="📄 Редактировать описание", callback_data=f"series_edit_desc_{series.id}"))
     builder.add(InlineKeyboardButton(text="📖 Изменить книгу", callback_data=f"series_edit_book_{series.id}"))
-    builder.add(InlineKeyboardButton(text="📑 Изменить тему", callback_data=f"series_edit_theme_{series.id}"))
+    builder.add(InlineKeyboardButton(text="📚 Изменить тему", callback_data=f"series_edit_theme_{series.id}"))
 
     if series.is_completed:
         builder.add(InlineKeyboardButton(text="🔄 Отметить как незавершённую", callback_data=f"series_toggle_completed_{series.id}"))
@@ -817,7 +817,7 @@ async def create_series_start(callback: CallbackQuery, state: FSMContext):
     await state.set_state(SeriesStates.create_name)
 
     await callback.message.edit_text(
-        "📚 <b>Создание новой серии</b>\n\n"
+        "📁 <b>Создание новой серии</b>\n\n"
         "Шаг 1/5: Введите название серии:",
         reply_markup=InlineKeyboardMarkup(inline_keyboard=[[
             InlineKeyboardButton(text="🔙 Отмена", callback_data=f"series_teacher_{teacher_id}")
@@ -1102,7 +1102,7 @@ async def create_series_final(callback: CallbackQuery, state: FSMContext):
     teacher = await get_lesson_teacher_by_id(teacher_id)
     teacher_name = teacher.name if teacher else "Преподаватель"
 
-    text = f"📚 <b>Серии преподавателя {teacher_name}</b>\n\n"
+    text = f"📁 <b>Серии преподавателя {teacher_name}</b>\n\n"
 
     builder = InlineKeyboardBuilder()
 

@@ -38,7 +38,7 @@ async def manage_teacher_series(callback: CallbackQuery):
 
     if not teacher_lessons:
         await callback.message.edit_text(
-            f"📚 <b>Управление сериями</b>\n\n"
+            f"📁 <b>Управление сериями</b>\n\n"
             f"Преподаватель: {teacher.name}\n\n"
             f"У этого преподавателя пока нет уроков.",
             reply_markup=InlineKeyboardMarkup(inline_keyboard=[[
@@ -63,7 +63,7 @@ async def manage_teacher_series(callback: CallbackQuery):
     builder.adjust(1)
 
     await callback.message.edit_text(
-        f"📚 <b>Управление сериями</b>\n\n"
+        f"📁 <b>Управление сериями</b>\n\n"
         f"Преподаватель: {teacher.name}\n\n"
         f"Выберите книгу:",
         reply_markup=builder.as_markup()
@@ -98,7 +98,7 @@ async def show_series_list(callback: CallbackQuery):
 
     if not series_data:
         await callback.message.edit_text(
-            f"📚 <b>Управление сериями</b>\n\n"
+            f"📁 <b>Управление сериями</b>\n\n"
             f"Преподаватель: {teacher.name}\n"
             f"Книга: {book.name}\n\n"
             f"Нет серий для этой книги.",
@@ -143,7 +143,7 @@ async def show_series_list(callback: CallbackQuery):
     builder.adjust(1)
 
     await callback.message.edit_text(
-        f"📚 <b>Управление сериями</b>\n\n"
+        f"📁 <b>Управление сериями</b>\n\n"
         f"Преподаватель: {teacher.name}\n"
         f"Книга: {book.name}\n\n"
         f"Выберите серию для редактирования:",
@@ -199,7 +199,7 @@ async def edit_series_menu(callback: CallbackQuery):
     builder.adjust(1)
 
     await callback.message.edit_text(
-        f"📚 <b>Редактирование серии</b>\n\n"
+        f"📁 <b>Редактирование серии</b>\n\n"
         f"Преподаватель: {teacher.name}\n"
         f"Книга: {book.name}\n"
         f"Серия: {year} - {name}\n"

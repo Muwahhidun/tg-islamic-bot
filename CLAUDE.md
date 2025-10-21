@@ -424,6 +424,30 @@ docker-compose logs bot | grep ERROR
 **State Naming:**
 - Descriptive: `LessonStates.edit_title` not `title_edit`
 
+**Emoji Usage (STRICT):**
+See `EMOJI_GUIDE.md` for full documentation. Key rules:
+
+**Entities:**
+- 📚 Темы (entity itself, not individual themes)
+- 📖 Книги
+- ✍️ Авторы книг
+- 👤 Преподаватели
+- 🎧 Уроки
+- 📁 Серии (NOT 📚 or 🎙️)
+- 🎓 Тесты (NOT 📝)
+- ❓ Вопросы теста
+- 👥 Пользователи
+- 🏷️ Теги
+
+**Actions:**
+- ✏️ Edit short fields (name, title, year)
+- 📄 Edit long fields (description, biography) - NOT 📝
+- ➕ Add/Create
+- 🗑️ Delete
+- 🔙 Back
+- ✅/❌ Yes/No, Active/Inactive
+- ℹ️ Help/Info (NOT ❓)
+
 ## Critical Reminders
 
 1. **Series fields removed** - Use `lesson.series_id` FK and `lesson.series` relationship only

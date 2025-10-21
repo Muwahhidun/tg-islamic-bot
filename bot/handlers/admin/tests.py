@@ -70,7 +70,7 @@ async def tests_menu(callback: CallbackQuery):
     builder.adjust(1)
 
     await callback.message.edit_text(
-        "📝 <b>Управление тестами</b>\n\n"
+        "🎓 <b>Управление тестами</b>\n\n"
         "Выберите действие:",
         reply_markup=builder.as_markup()
     )
@@ -92,7 +92,7 @@ async def show_all_tests(callback: CallbackQuery):
 
     text = (
         "📊 <b>Статистика по тестам</b>\n\n"
-        f"📝 Всего тестов: {total_tests}\n"
+        f"🎓 Всего тестов: {total_tests}\n"
         f"✅ Активных: {active_tests}\n"
         f"❌ Неактивных: {total_tests - active_tests}\n"
         f"❓ Всего вопросов: {total_questions}\n"
@@ -190,7 +190,7 @@ async def delete_test_confirm(callback: CallbackQuery):
     text = (
         f"🗑 <b>Удаление теста</b>\n\n"
         f"Вы уверены, что хотите удалить тест?\n\n"
-        f"📝 {test.title}\n"
+        f"🎓 {test.title}\n"
         f"❓ Вопросов: {test.questions_count}\n\n"
         f"⚠️ Это действие нельзя отменить!"
     )
@@ -252,11 +252,11 @@ async def edit_test_menu(callback: CallbackQuery):
 
     # Формируем информацию
     info = f"✏️ <b>Редактирование теста</b>\n\n"
-    info += f"📝 Название: {test.title}\n"
+    info += f"🎓 Название: {test.title}\n"
     info += f"📄 Описание: {test.description or 'не указано'}\n"
     info += f"✅ Проходной балл: {test.passing_score}%\n"
     info += f"⏱ Время на вопрос: {test.time_per_question_seconds} сек\n"
-    info += f"📚 Серия: {test.series.display_name}\n"
+    info += f"📁 Серия: {test.series.display_name}\n"
     info += f"❓ Вопросов: {test.questions_count}\n"
 
     # Кнопки редактирования
@@ -265,7 +265,7 @@ async def edit_test_menu(callback: CallbackQuery):
 
     builder = InlineKeyboardBuilder()
     builder.add(InlineKeyboardButton(text="✏️ Название", callback_data=f"edit_test_title_{test_id}"))
-    builder.add(InlineKeyboardButton(text="✏️ Описание", callback_data=f"edit_test_description_{test_id}"))
+    builder.add(InlineKeyboardButton(text="📄 Описание", callback_data=f"edit_test_description_{test_id}"))
     builder.add(InlineKeyboardButton(text="✏️ Проходной балл", callback_data=f"edit_test_passing_score_{test_id}"))
     builder.add(InlineKeyboardButton(text="⏱ Время на вопрос", callback_data=f"edit_test_time_{test_id}"))
     builder.add(InlineKeyboardButton(text="🔙 К тесту", callback_data=f"tests_series_{teacher_id}_{series_id}"))
@@ -326,16 +326,16 @@ async def save_test_title(message: Message, state: FSMContext):
 
     # Формируем информацию для меню редактирования
     info = f"✏️ <b>Редактирование теста</b>\n\n"
-    info += f"📝 Название: {test.title}\n"
+    info += f"🎓 Название: {test.title}\n"
     info += f"📄 Описание: {test.description or 'не указано'}\n"
     info += f"✅ Проходной балл: {test.passing_score}%\n"
     info += f"⏱ Время на вопрос: {test.time_per_question_seconds} сек\n"
-    info += f"📚 Серия: {test.series.display_name}\n"
+    info += f"📁 Серия: {test.series.display_name}\n"
     info += f"❓ Вопросов: {test.questions_count}\n"
 
     builder = InlineKeyboardBuilder()
     builder.add(InlineKeyboardButton(text="✏️ Название", callback_data=f"edit_test_title_{test_id}"))
-    builder.add(InlineKeyboardButton(text="✏️ Описание", callback_data=f"edit_test_description_{test_id}"))
+    builder.add(InlineKeyboardButton(text="📄 Описание", callback_data=f"edit_test_description_{test_id}"))
     builder.add(InlineKeyboardButton(text="✏️ Проходной балл", callback_data=f"edit_test_passing_score_{test_id}"))
     builder.add(InlineKeyboardButton(text="⏱ Время на вопрос", callback_data=f"edit_test_time_{test_id}"))
     builder.add(InlineKeyboardButton(text="🔙 К тесту", callback_data=f"tests_series_{test.teacher_id}_{test.series_id}"))
@@ -397,16 +397,16 @@ async def delete_test_description(callback: CallbackQuery, state: FSMContext):
 
     # Возвращаемся в меню редактирования
     info = f"✏️ <b>Редактирование теста</b>\n\n"
-    info += f"📝 Название: {test.title}\n"
+    info += f"🎓 Название: {test.title}\n"
     info += f"📄 Описание: {test.description or 'не указано'}\n"
     info += f"✅ Проходной балл: {test.passing_score}%\n"
     info += f"⏱ Время на вопрос: {test.time_per_question_seconds} сек\n"
-    info += f"📚 Серия: {test.series.display_name}\n"
+    info += f"📁 Серия: {test.series.display_name}\n"
     info += f"❓ Вопросов: {test.questions_count}\n"
 
     builder = InlineKeyboardBuilder()
     builder.add(InlineKeyboardButton(text="✏️ Название", callback_data=f"edit_test_title_{test_id}"))
-    builder.add(InlineKeyboardButton(text="✏️ Описание", callback_data=f"edit_test_description_{test_id}"))
+    builder.add(InlineKeyboardButton(text="📄 Описание", callback_data=f"edit_test_description_{test_id}"))
     builder.add(InlineKeyboardButton(text="✏️ Проходной балл", callback_data=f"edit_test_passing_score_{test_id}"))
     builder.add(InlineKeyboardButton(text="⏱ Время на вопрос", callback_data=f"edit_test_time_{test_id}"))
     builder.add(InlineKeyboardButton(text="🔙 К тесту", callback_data=f"tests_series_{test.teacher_id}_{test.series_id}"))
@@ -439,16 +439,16 @@ async def save_test_description(message: Message, state: FSMContext):
 
     # Формируем информацию для меню редактирования
     info = f"✏️ <b>Редактирование теста</b>\n\n"
-    info += f"📝 Название: {test.title}\n"
+    info += f"🎓 Название: {test.title}\n"
     info += f"📄 Описание: {test.description or 'не указано'}\n"
     info += f"✅ Проходной балл: {test.passing_score}%\n"
     info += f"⏱ Время на вопрос: {test.time_per_question_seconds} сек\n"
-    info += f"📚 Серия: {test.series.display_name}\n"
+    info += f"📁 Серия: {test.series.display_name}\n"
     info += f"❓ Вопросов: {test.questions_count}\n"
 
     builder = InlineKeyboardBuilder()
     builder.add(InlineKeyboardButton(text="✏️ Название", callback_data=f"edit_test_title_{test_id}"))
-    builder.add(InlineKeyboardButton(text="✏️ Описание", callback_data=f"edit_test_description_{test_id}"))
+    builder.add(InlineKeyboardButton(text="📄 Описание", callback_data=f"edit_test_description_{test_id}"))
     builder.add(InlineKeyboardButton(text="✏️ Проходной балл", callback_data=f"edit_test_passing_score_{test_id}"))
     builder.add(InlineKeyboardButton(text="⏱ Время на вопрос", callback_data=f"edit_test_time_{test_id}"))
     builder.add(InlineKeyboardButton(text="🔙 К тесту", callback_data=f"tests_series_{test.teacher_id}_{test.series_id}"))
@@ -530,16 +530,16 @@ async def save_test_passing_score(message: Message, state: FSMContext):
 
     # Формируем информацию для меню редактирования
     info = f"✏️ <b>Редактирование теста</b>\n\n"
-    info += f"📝 Название: {test.title}\n"
+    info += f"🎓 Название: {test.title}\n"
     info += f"📄 Описание: {test.description or 'не указано'}\n"
     info += f"✅ Проходной балл: {test.passing_score}%\n"
     info += f"⏱ Время на вопрос: {test.time_per_question_seconds} сек\n"
-    info += f"📚 Серия: {test.series.display_name}\n"
+    info += f"📁 Серия: {test.series.display_name}\n"
     info += f"❓ Вопросов: {test.questions_count}\n"
 
     builder = InlineKeyboardBuilder()
     builder.add(InlineKeyboardButton(text="✏️ Название", callback_data=f"edit_test_title_{test_id}"))
-    builder.add(InlineKeyboardButton(text="✏️ Описание", callback_data=f"edit_test_description_{test_id}"))
+    builder.add(InlineKeyboardButton(text="📄 Описание", callback_data=f"edit_test_description_{test_id}"))
     builder.add(InlineKeyboardButton(text="✏️ Проходной балл", callback_data=f"edit_test_passing_score_{test_id}"))
     builder.add(InlineKeyboardButton(text="⏱ Время на вопрос", callback_data=f"edit_test_time_{test_id}"))
     builder.add(InlineKeyboardButton(text="🔙 К тесту", callback_data=f"tests_series_{test.teacher_id}_{test.series_id}"))
@@ -621,16 +621,16 @@ async def save_test_time(message: Message, state: FSMContext):
 
     # Формируем информацию для меню редактирования
     info = f"✏️ <b>Редактирование теста</b>\n\n"
-    info += f"📝 Название: {test.title}\n"
+    info += f"🎓 Название: {test.title}\n"
     info += f"📄 Описание: {test.description or 'не указано'}\n"
     info += f"✅ Проходной балл: {test.passing_score}%\n"
     info += f"⏱ Время на вопрос: {test.time_per_question_seconds} сек\n"
-    info += f"📚 Серия: {test.series.display_name}\n"
+    info += f"📁 Серия: {test.series.display_name}\n"
     info += f"❓ Вопросов: {test.questions_count}\n"
 
     builder = InlineKeyboardBuilder()
     builder.add(InlineKeyboardButton(text="✏️ Название", callback_data=f"edit_test_title_{test_id}"))
-    builder.add(InlineKeyboardButton(text="✏️ Описание", callback_data=f"edit_test_description_{test_id}"))
+    builder.add(InlineKeyboardButton(text="📄 Описание", callback_data=f"edit_test_description_{test_id}"))
     builder.add(InlineKeyboardButton(text="✏️ Проходной балл", callback_data=f"edit_test_passing_score_{test_id}"))
     builder.add(InlineKeyboardButton(text="⏱ Время на вопрос", callback_data=f"edit_test_time_{test_id}"))
     builder.add(InlineKeyboardButton(text="🔙 К тесту", callback_data=f"tests_series_{test.teacher_id}_{test.series_id}"))
@@ -670,7 +670,7 @@ async def tests_teacher_series(callback: CallbackQuery):
         # Проверяем есть ли уже тест для этой серии
         existing_test = await get_test_by_series(series.id)
 
-        button_text = f"📚 {series.year} - {series.name}"
+        button_text = f"📁 {series.year} - {series.name}"
         if series.book_title:
             button_text += f" ({series.book_title})"
 
@@ -686,7 +686,7 @@ async def tests_teacher_series(callback: CallbackQuery):
     builder.adjust(1)
 
     await callback.message.edit_text(
-        "📚 <b>Серии преподавателя</b>\n\n"
+        "📁 <b>Серии преподавателя</b>\n\n"
         "Выберите серию:\n"
         "(✅ = тест уже создан)",
         reply_markup=builder.as_markup()
@@ -711,7 +711,7 @@ async def tests_series_view(callback: CallbackQuery):
 
         # Кнопки управления
         builder = InlineKeyboardBuilder()
-        builder.add(InlineKeyboardButton(text="📝 Вопросы", callback_data=f"test_questions_{test.id}"))
+        builder.add(InlineKeyboardButton(text="🎓 Вопросы", callback_data=f"test_questions_{test.id}"))
         builder.add(InlineKeyboardButton(text="✏️ Редактировать", callback_data=f"edit_test_{test.id}"))
 
         if test.is_active:
@@ -745,8 +745,8 @@ async def tests_series_view(callback: CallbackQuery):
         builder.adjust(1)
 
         await callback.message.edit_text(
-            f"📝 <b>Тест для серии</b>\n\n"
-            f"📚 Серия: {series.display_name}\n"
+            f"🎓 <b>Тест для серии</b>\n\n"
+            f"📁 Серия: {series.display_name}\n"
             f"👤 Преподаватель: {series.teacher.name if series.teacher else '???'}\n"
             f"🎧 Уроков: {len(series.lessons) if series.lessons else 0}\n\n"
             f"❌ Тест для этой серии ещё не создан.",
@@ -772,7 +772,7 @@ async def create_test_for_series_start(callback: CallbackQuery, state: FSMContex
     )
 
     await callback.message.edit_text(
-        "📝 <b>Создание теста</b>\n\n"
+        "🎓 <b>Создание теста</b>\n\n"
         "Шаг 1: Введите название теста:\n\n"
         "Например: «Тест по Таухиду»",
         reply_markup=InlineKeyboardMarkup(inline_keyboard=[[
@@ -801,7 +801,7 @@ async def save_test_title(message: Message, state: FSMContext):
     await message.bot.edit_message_text(
         chat_id=data['create_chat_id'],
         message_id=data['create_message_id'],
-        text="📝 <b>Создание теста</b>\n\n"
+        text="🎓 <b>Создание теста</b>\n\n"
              "Шаг 2: Введите описание теста:",
         reply_markup=InlineKeyboardMarkup(inline_keyboard=[
             [InlineKeyboardButton(text="⏭️ Пропустить", callback_data="skip_test_description")],
@@ -820,7 +820,7 @@ async def skip_test_description(callback: CallbackQuery, state: FSMContext):
     await state.update_data(description=None)
 
     await callback.message.edit_text(
-        text="📝 <b>Создание теста</b>\n\n"
+        text="🎓 <b>Создание теста</b>\n\n"
              "Шаг 3: Введите проходной балл (в процентах):\n\n"
              "По умолчанию: 80%\n"
              "Допустимо: 0-100",
@@ -848,7 +848,7 @@ async def save_test_description(message: Message, state: FSMContext):
     await message.bot.edit_message_text(
         chat_id=data['create_chat_id'],
         message_id=data['create_message_id'],
-        text="📝 <b>Создание теста</b>\n\n"
+        text="🎓 <b>Создание теста</b>\n\n"
              "Шаг 3: Введите проходной балл (в процентах):\n\n"
              "По умолчанию: 80%\n"
              "Допустимо: 0-100",
@@ -892,7 +892,7 @@ async def save_test_passing_score(message: Message, state: FSMContext):
     await message.bot.edit_message_text(
         chat_id=data['create_chat_id'],
         message_id=data['create_message_id'],
-        text="📝 <b>Создание теста</b>\n\n"
+        text="🎓 <b>Создание теста</b>\n\n"
              "Шаг 4: Введите время на один вопрос (в секундах):\n\n"
              "По умолчанию: 30 секунд\n"
              "Допустимо: 10-300",
@@ -946,12 +946,12 @@ async def save_test_time_and_create(message: Message, state: FSMContext):
             chat_id=data['create_chat_id'],
             message_id=data['create_message_id'],
             text=f"✅ <b>Тест создан!</b>\n\n"
-                 f"📝 {test.title}\n"
+                 f"🎓 {test.title}\n"
                  f"✅ Проходной балл: {test.passing_score}%\n"
                  f"⏱ Время на вопрос: {test.time_per_question_seconds} сек\n\n"
                  f"Теперь добавьте вопросы к тесту.",
             reply_markup=InlineKeyboardMarkup(inline_keyboard=[[
-                InlineKeyboardButton(text="📝 Добавить вопросы", callback_data=f"test_questions_{test.id}"),
+                InlineKeyboardButton(text="🎓 Добавить вопросы", callback_data=f"test_questions_{test.id}"),
                 InlineKeyboardButton(text="🔙 К серии", callback_data=f"tests_series_{data['teacher_id']}_{data['series_id']}")
             ]])
         )
@@ -994,8 +994,8 @@ async def test_questions_menu(callback: CallbackQuery):
         questions_by_lesson[lesson_id].append(q)
 
     # Формируем текст
-    text = f"📝 <b>Тест: {test.title}</b>\n\n"
-    text += f"📚 Серия: {test.series.display_name}\n"
+    text = f"🎓 <b>Тест: {test.title}</b>\n\n"
+    text += f"📁 Серия: {test.series.display_name}\n"
     text += f"❓ Вопросов: {test.questions_count}\n\n"
 
     if questions:
@@ -1008,7 +1008,7 @@ async def test_questions_menu(callback: CallbackQuery):
         for lesson in lessons:
             lesson_questions = questions_by_lesson.get(lesson.id, [])
             if lesson_questions:
-                text += f"📚 <b>Урок {lesson.lesson_number}: {lesson.title}</b>\n"
+                text += f"🎧 <b>Урок {lesson.lesson_number}: {lesson.title}</b>\n"
                 text += f"Вопросов: {len(lesson_questions)}\n\n"
 
         text += "═══════════════════\n"
@@ -1060,7 +1060,7 @@ async def add_question_choose_lesson(callback: CallbackQuery, state: FSMContext)
     builder = InlineKeyboardBuilder()
     for lesson in series.lessons:
         builder.add(InlineKeyboardButton(
-            text=f"📚 Урок {lesson.lesson_number}: {lesson.title}",
+            text=f"🎧 Урок {lesson.lesson_number}: {lesson.title}",
             callback_data=f"add_q_lesson_{test_id}_{lesson.id}"
         ))
 
@@ -1068,7 +1068,7 @@ async def add_question_choose_lesson(callback: CallbackQuery, state: FSMContext)
     builder.adjust(1)
 
     await callback.message.edit_text(
-        f"📝 <b>Добавление вопроса</b>\n\n"
+        f"🎓 <b>Добавление вопроса</b>\n\n"
         f"Выберите урок, к которому относится вопрос:",
         reply_markup=builder.as_markup()
     )
@@ -1092,7 +1092,7 @@ async def add_question_start_input(callback: CallbackQuery, state: FSMContext):
     )
 
     await callback.message.edit_text(
-        "📝 <b>Добавление вопроса</b>\n\n"
+        "🎓 <b>Добавление вопроса</b>\n\n"
         "Шаг 1/7: Введите текст вопроса:\n\n"
         "Например: «Что такое Таухид?»",
         reply_markup=InlineKeyboardMarkup(inline_keyboard=[[
@@ -1121,7 +1121,7 @@ async def save_question_text(message: Message, state: FSMContext):
     await message.bot.edit_message_text(
         chat_id=data['question_chat_id'],
         message_id=data['question_message_id'],
-        text="📝 <b>Добавление вопроса</b>\n\n"
+        text="🎓 <b>Добавление вопроса</b>\n\n"
              "Шаг 2/7: Введите вариант ответа №1:",
         reply_markup=InlineKeyboardMarkup(inline_keyboard=[[
             InlineKeyboardButton(text="🔙 Отмена", callback_data=f"test_questions_{data['test_id']}")
@@ -1146,7 +1146,7 @@ async def save_option_1(message: Message, state: FSMContext):
     await message.bot.edit_message_text(
         chat_id=data['question_chat_id'],
         message_id=data['question_message_id'],
-        text="📝 <b>Добавление вопроса</b>\n\n"
+        text="🎓 <b>Добавление вопроса</b>\n\n"
              "Шаг 3/7: Введите вариант ответа №2:",
         reply_markup=InlineKeyboardMarkup(inline_keyboard=[[
             InlineKeyboardButton(text="🔙 Отмена", callback_data=f"test_questions_{data['test_id']}")
@@ -1171,7 +1171,7 @@ async def save_option_2(message: Message, state: FSMContext):
     await message.bot.edit_message_text(
         chat_id=data['question_chat_id'],
         message_id=data['question_message_id'],
-        text="📝 <b>Добавление вопроса</b>\n\n"
+        text="🎓 <b>Добавление вопроса</b>\n\n"
              "Шаг 4/7: Введите вариант ответа №3:",
         reply_markup=InlineKeyboardMarkup(inline_keyboard=[[
             InlineKeyboardButton(text="🔙 Отмена", callback_data=f"test_questions_{data['test_id']}")
@@ -1196,7 +1196,7 @@ async def save_option_3(message: Message, state: FSMContext):
     await message.bot.edit_message_text(
         chat_id=data['question_chat_id'],
         message_id=data['question_message_id'],
-        text="📝 <b>Добавление вопроса</b>\n\n"
+        text="🎓 <b>Добавление вопроса</b>\n\n"
              "Шаг 5/7: Введите вариант ответа №4:",
         reply_markup=InlineKeyboardMarkup(inline_keyboard=[[
             InlineKeyboardButton(text="🔙 Отмена", callback_data=f"test_questions_{data['test_id']}")
@@ -1220,7 +1220,7 @@ async def save_option_4(message: Message, state: FSMContext):
 
     # Показываем все варианты для выбора правильного
     text = (
-        "📝 <b>Добавление вопроса</b>\n\n"
+        "🎓 <b>Добавление вопроса</b>\n\n"
         f"Вопрос: {data['question_text']}\n\n"
         f"1️⃣ {data['option_1']}\n"
         f"2️⃣ {data['option_2']}\n"
@@ -1259,7 +1259,7 @@ async def save_correct_answer(callback: CallbackQuery, state: FSMContext):
     await state.update_data(correct_answer=correct_num - 1)
 
     await callback.message.edit_text(
-        "📝 <b>Добавление вопроса</b>\n\n"
+        "🎓 <b>Добавление вопроса</b>\n\n"
         "Шаг 7/7: Введите пояснение к ответу:",
         reply_markup=InlineKeyboardMarkup(inline_keyboard=[
             [InlineKeyboardButton(text="⏭️ Пропустить", callback_data=f"skip_question_explanation")],
@@ -1299,14 +1299,14 @@ async def skip_question_explanation(callback: CallbackQuery, state: FSMContext):
 
         await callback.message.edit_text(
             text=f"✅ <b>Вопрос добавлен!</b>\n\n"
-                 f"📝 {data['question_text']}\n"
+                 f"🎓 {data['question_text']}\n"
                  f"✅ Правильный ответ: вариант {data['correct_answer'] + 1}\n\n"
                  f"Всего вопросов в тесте: {test.questions_count}",
-            reply_markup=InlineKeyboardMarkup(inline_keyboard=[[
-                InlineKeyboardButton(text="➕ Добавить ещё вопрос", callback_data=f"add_question_{data['test_id']}"),
-                InlineKeyboardButton(text="📋 Список вопросов", callback_data=f"list_questions_{data['test_id']}"),
-                InlineKeyboardButton(text="🔙 К тесту", callback_data=f"test_questions_{data['test_id']}")
-            ]])
+            reply_markup=InlineKeyboardMarkup(inline_keyboard=[
+                [InlineKeyboardButton(text="➕ Добавить ещё вопрос", callback_data=f"add_question_{data['test_id']}")],
+                [InlineKeyboardButton(text="📋 Список уроков", callback_data=f"list_questions_{data['test_id']}")],
+                [InlineKeyboardButton(text="🔙 К тесту", callback_data=f"test_questions_{data['test_id']}")]
+            ])
         )
         await state.clear()
         await callback.answer("✅ Вопрос добавлен")
@@ -1361,14 +1361,14 @@ async def save_explanation_and_create(message: Message, state: FSMContext):
             chat_id=data['question_chat_id'],
             message_id=data['question_message_id'],
             text=f"✅ <b>Вопрос добавлен!</b>\n\n"
-                 f"📝 {data['question_text']}\n"
+                 f"🎓 {data['question_text']}\n"
                  f"✅ Правильный ответ: вариант {data['correct_answer'] + 1}\n\n"
                  f"Всего вопросов в тесте: {test.questions_count}",
-            reply_markup=InlineKeyboardMarkup(inline_keyboard=[[
-                InlineKeyboardButton(text="➕ Добавить ещё вопрос", callback_data=f"add_question_{data['test_id']}"),
-                InlineKeyboardButton(text="📋 Список вопросов", callback_data=f"list_questions_{data['test_id']}"),
-                InlineKeyboardButton(text="🔙 К тесту", callback_data=f"test_questions_{data['test_id']}")
-            ]])
+            reply_markup=InlineKeyboardMarkup(inline_keyboard=[
+                [InlineKeyboardButton(text="➕ Добавить ещё вопрос", callback_data=f"add_question_{data['test_id']}")],
+                [InlineKeyboardButton(text="📋 Список уроков", callback_data=f"list_questions_{data['test_id']}")],
+                [InlineKeyboardButton(text="🔙 К тесту", callback_data=f"test_questions_{data['test_id']}")]
+            ])
         )
         await state.clear()
 
@@ -1389,8 +1389,8 @@ async def save_explanation_and_create(message: Message, state: FSMContext):
 
 @router.callback_query(F.data.startswith("list_questions_"))
 @admin_required
-async def list_questions(callback: CallbackQuery):
-    """Показать список всех вопросов с детальной информацией"""
+async def list_questions_choose_lesson(callback: CallbackQuery):
+    """Выбор урока для просмотра вопросов"""
     test_id = int(callback.data.split("_")[2])
     test = await get_test_by_id(test_id)
 
@@ -1412,47 +1412,98 @@ async def list_questions(callback: CallbackQuery):
         await callback.answer()
         return
 
-    # Группируем по урокам
+    # Получаем уроки серии
     series = await get_series_by_id(test.series_id)
     lessons = series.lessons if series else []
 
+    # Группируем вопросы по урокам
     questions_by_lesson = {}
     for q in questions:
         if q.lesson_id not in questions_by_lesson:
             questions_by_lesson[q.lesson_id] = []
         questions_by_lesson[q.lesson_id].append(q)
 
-    # Формируем текст
-    text = f"📝 <b>{test.title}</b>\n"
-    text += f"📚 {test.series.display_name}\n"
+    # Формируем текст и кнопки
+    text = f"🎓 <b>{test.title}</b>\n\n"
+    text += f"📁 Серия: {test.series.display_name}\n"
     text += f"❓ Всего вопросов: {test.questions_count}\n\n"
+    text += "Выберите урок для просмотра вопросов:"
+
+    builder = InlineKeyboardBuilder()
+
+    # Кнопки с уроками
+    for lesson in lessons:
+        lesson_questions = questions_by_lesson.get(lesson.id, [])
+        if lesson_questions:
+            builder.add(InlineKeyboardButton(
+                text=f"🎧 Урок {lesson.lesson_number}: {lesson.title} ({len(lesson_questions)})",
+                callback_data=f"show_lesson_questions_{test_id}_{lesson.id}"
+            ))
+
+    builder.add(InlineKeyboardButton(text="🔙 Назад", callback_data=f"test_questions_{test_id}"))
+    builder.adjust(1)
+
+    await callback.message.edit_text(text, reply_markup=builder.as_markup())
+    await callback.answer()
+
+
+@router.callback_query(F.data.startswith("show_lesson_questions_"))
+@admin_required
+async def show_lesson_questions(callback: CallbackQuery):
+    """Показать вопросы для конкретного урока"""
+    parts = callback.data.split("_")
+    test_id = int(parts[3])
+    lesson_id = int(parts[4])
+
+    test = await get_test_by_id(test_id)
+    if not test:
+        await callback.answer("❌ Тест не найден", show_alert=True)
+        return
+
+    # Получаем все вопросы теста
+    all_questions = await get_questions_by_test(test_id)
+
+    # Фильтруем вопросы по уроку
+    questions = [q for q in all_questions if q.lesson_id == lesson_id]
+
+    if not questions:
+        await callback.message.edit_text(
+            "❌ <b>Вопросов для этого урока нет</b>",
+            reply_markup=InlineKeyboardMarkup(inline_keyboard=[[
+                InlineKeyboardButton(text="🔙 Назад", callback_data=f"list_questions_{test_id}")
+            ]])
+        )
+        await callback.answer()
+        return
+
+    # Получаем информацию об уроке
+    lesson = questions[0].lesson  # Берём урок из первого вопроса
+
+    # Формируем текст
+    text = f"🎓 <b>{test.title}</b>\n"
+    text += f"📁 {test.series.display_name}\n"
+    text += f"🎧 <b>Урок {lesson.lesson_number}: {lesson.title}</b>\n\n"
+    text += f"❓ Вопросов в уроке: {len(questions)}\n\n"
     text += "═══════════════════\n\n"
 
     builder = InlineKeyboardBuilder()
 
-    for lesson in lessons:
-        lesson_questions = questions_by_lesson.get(lesson.id, [])
-        if lesson_questions:
-            text += f"📚 <b>Урок {lesson.lesson_number}: {lesson.title}</b>\n\n"
+    for q in questions:
+        text += f"❓ <b>Вопрос #{q.id}</b>\n"
+        text += f"{q.question_text}\n"
+        text += f"✅ Правильный: вариант {q.correct_answer_index + 1}\n\n"
 
-            for q in lesson_questions:
-                text += f"❓ <b>Вопрос #{q.id}</b>\n"
-                text += f"{q.question_text}\n"
-                text += f"✅ Правильный: вариант {q.correct_answer_index + 1}\n"
-
-                builder.add(InlineKeyboardButton(
-                    text=f"✏️ #{q.id}",
-                    callback_data=f"edit_question_{q.id}"
-                ))
-                builder.add(InlineKeyboardButton(
-                    text=f"🗑 #{q.id}",
-                    callback_data=f"delete_q_confirm_{q.id}"
-                ))
-
-            text += "\n"
+        builder.add(InlineKeyboardButton(
+            text=f"✏️ #{q.id}",
+            callback_data=f"edit_question_{q.id}"
+        ))
+        builder.add(InlineKeyboardButton(
+            text=f"🗑 #{q.id}",
+            callback_data=f"delete_q_confirm_{q.id}"
+        ))
 
     builder.add(InlineKeyboardButton(text="➕ Добавить вопрос", callback_data=f"add_question_{test_id}"))
-    builder.add(InlineKeyboardButton(text="🔙 Назад", callback_data=f"test_questions_{test_id}"))
+    builder.add(InlineKeyboardButton(text="🔙 К списку уроков", callback_data=f"list_questions_{test_id}"))
     builder.adjust(2, 2, 1, 1)
 
     await callback.message.edit_text(text, reply_markup=builder.as_markup())
@@ -1481,7 +1532,7 @@ async def delete_question_confirm(callback: CallbackQuery):
 
     builder = InlineKeyboardBuilder()
     builder.add(InlineKeyboardButton(text="✅ Да, удалить", callback_data=f"delete_q_{question_id}"))
-    builder.add(InlineKeyboardButton(text="❌ Отмена", callback_data=f"list_questions_{question.test_id}"))
+    builder.add(InlineKeyboardButton(text="❌ Отмена", callback_data=f"show_lesson_questions_{question.test_id}_{question.lesson_id}"))
     builder.adjust(1)
 
     await callback.message.edit_text(text, reply_markup=builder.as_markup())
@@ -1500,14 +1551,15 @@ async def delete_question_handler(callback: CallbackQuery):
         return
 
     test_id = question.test_id
+    lesson_id = question.lesson_id
     success = await delete_question(question_id)
 
     if success:
         await callback.message.edit_text(
             "✅ <b>Вопрос удалён</b>",
             reply_markup=InlineKeyboardMarkup(inline_keyboard=[[
-                InlineKeyboardButton(text="📋 К списку", callback_data=f"list_questions_{test_id}"),
-                InlineKeyboardButton(text="🔙 К тесту", callback_data=f"test_questions_{test_id}")
+                InlineKeyboardButton(text="📋 К списку вопросов урока", callback_data=f"show_lesson_questions_{test_id}_{lesson_id}"),
+                InlineKeyboardButton(text="🔙 К списку уроков", callback_data=f"list_questions_{test_id}")
             ]])
         )
         await callback.answer("✅ Вопрос удалён")
@@ -1529,7 +1581,7 @@ async def view_question_details(callback: CallbackQuery):
         return
 
     # Формируем информацию о вопросе
-    text = f"📝 <b>Вопрос #{question_id}</b>\n\n"
+    text = f"🎓 <b>Вопрос #{question_id}</b>\n\n"
     text += f"❓ <b>Текст:</b>\n{question.question_text}\n\n"
     text += "<b>Варианты ответа:</b>\n"
 
@@ -1542,7 +1594,7 @@ async def view_question_details(callback: CallbackQuery):
 
     builder = InlineKeyboardBuilder()
     builder.add(InlineKeyboardButton(text="🗑 Удалить вопрос", callback_data=f"delete_q_confirm_{question_id}"))
-    builder.add(InlineKeyboardButton(text="🔙 К списку", callback_data=f"list_questions_{question.test_id}"))
+    builder.add(InlineKeyboardButton(text="🔙 К списку вопросов", callback_data=f"show_lesson_questions_{question.test_id}_{question.lesson_id}"))
     builder.adjust(1)
 
     await callback.message.edit_text(text, reply_markup=builder.as_markup())
