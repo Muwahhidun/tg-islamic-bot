@@ -260,11 +260,43 @@ async def show_series_lessons(callback: CallbackQuery, state: FSMContext):
     # Пока передаем пустой словарь, позже добавим проверку
     has_tests = {}
 
-    text = (
-        f"📁 Серия: {series.display_name}\n"
-        f"👤 Преподаватель: {series.teacher_name}\n\n"
-        f"🎧 Список уроков ({len(lessons)}):"
-    )
+    # Формируем текст с полной иерархией
+    text = ""
+
+    # Получаем информацию о книге для отображения темы и автора
+    from bot.services.database_service import get_book_by_id
+    book = None
+    if series.book_id:
+        book = await get_book_by_id(series.book_id)
+
+    # Тема
+    if book and book.theme:
+        text += f"📚 Тема: {book.theme.name}\n"
+
+    # Книга
+    text += f"📖 Книга: «{series.book_title or 'Не указана'}»\n"
+
+    # Автор книги
+    if book and book.author:
+        text += f"✍️ Автор: {book.author_info}\n"
+
+    # Преподаватель
+    text += f"🎙️ Преподаватель: {series.teacher_name}\n"
+
+    # Серия
+    text += f"📁 Серия: {series.display_name}\n"
+
+    # Длительность
+    if series.total_duration_seconds > 0:
+        text += f"⏱️ Длительность: {series.formatted_total_duration}\n"
+
+    # Статус
+    if series.is_completed:
+        text += "✅ Серия завершена\n"
+    else:
+        text += "🔄 В процессе\n"
+
+    text += f"\n🎧 Список уроков ({len(lessons)}):"
 
     keyboard = get_lessons_keyboard(lessons, series_id, has_tests)
 
@@ -298,11 +330,43 @@ async def back_to_series_lessons(callback: CallbackQuery, state: FSMContext):
     # TODO: Проверить наличие тестов для каждого урока
     has_tests = {}
 
-    text = (
-        f"📁 Серия: {series.display_name}\n"
-        f"👤 Преподаватель: {series.teacher_name}\n\n"
-        f"🎧 Список уроков ({len(lessons)}):"
-    )
+    # Формируем текст с полной иерархией
+    text = ""
+
+    # Получаем информацию о книге для отображения темы и автора
+    from bot.services.database_service import get_book_by_id
+    book = None
+    if series.book_id:
+        book = await get_book_by_id(series.book_id)
+
+    # Тема
+    if book and book.theme:
+        text += f"📚 Тема: {book.theme.name}\n"
+
+    # Книга
+    text += f"📖 Книга: «{series.book_title or 'Не указана'}»\n"
+
+    # Автор книги
+    if book and book.author:
+        text += f"✍️ Автор: {book.author_info}\n"
+
+    # Преподаватель
+    text += f"🎙️ Преподаватель: {series.teacher_name}\n"
+
+    # Серия
+    text += f"📁 Серия: {series.display_name}\n"
+
+    # Длительность
+    if series.total_duration_seconds > 0:
+        text += f"⏱️ Длительность: {series.formatted_total_duration}\n"
+
+    # Статус
+    if series.is_completed:
+        text += "✅ Серия завершена\n"
+    else:
+        text += "🔄 В процессе\n"
+
+    text += f"\n🎧 Список уроков ({len(lessons)}):"
 
     keyboard = get_lessons_keyboard(lessons, series_id, has_tests)
 
