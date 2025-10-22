@@ -48,10 +48,18 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
-# Обработчик 401 ошибки - редирект на страницу логина
+# Обработчик 401 ошибки - редирект на страницу логина для браузера, JSON для API
 @app.exception_handler(HTTPException)
 async def http_exception_handler(request: Request, exc: HTTPException):
     if exc.status_code == 401:
+        # Для API запросов возвращаем JSON
+        if request.url.path.startswith("/convert") or request.url.path.startswith("/download"):
+            return Response(
+                content='{"detail":"Требуется авторизация"}',
+                status_code=401,
+                media_type="application/json"
+            )
+        # Для обычных страниц делаем редирект на логин
         return RedirectResponse(url="/login")
     raise exc
 
@@ -866,6 +874,11 @@ async def read_root(username: str = Depends(verify_session)):
                     clearInterval(progressInterval); // Останавливаем имитацию
 
                     if (!response.ok) {
+                        // Если требуется авторизация - перенаправляем на логин
+                        if (response.status === 401) {
+                            window.location.href = '/login';
+                            return;
+                        }
                         const error = await response.json();
                         throw new Error(error.detail || 'Ошибка конвертации');
                     }
