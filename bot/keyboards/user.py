@@ -19,7 +19,7 @@ def get_main_keyboard(is_admin: bool = False) -> InlineKeyboardMarkup:
     buttons = [
         [InlineKeyboardButton(text="📚 Список тем", callback_data="show_themes")],
         [InlineKeyboardButton(text="📌 Закладки", callback_data="bookmarks")],
-        [InlineKeyboardButton(text="🔍 Поиск уроков", callback_data="search_lessons")],
+        [InlineKeyboardButton(text="💬 Обратная связь", callback_data="feedback")],
         [InlineKeyboardButton(text="ℹ️ О проекте", callback_data="about_project")],
         [InlineKeyboardButton(text="🆔 Мой ID", callback_data="get_my_id")],
     ]

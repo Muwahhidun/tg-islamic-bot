@@ -10,7 +10,7 @@ from bot.utils.decorators import admin_required
 from bot.utils.config import config
 
 # Импорт роутеров из модулей
-from . import themes, authors, teachers, teachers_series, books, lessons, users, stats, series, tests
+from . import themes, authors, teachers, teachers_series, books, lessons, users, stats, series, tests, feedbacks
 
 # Главный роутер для админ-панели
 router = Router()
@@ -26,6 +26,7 @@ router.include_router(users.router)
 router.include_router(stats.router)
 router.include_router(series.router)
 router.include_router(tests.router)
+router.include_router(feedbacks.router)
 
 
 @router.message(Command("admin"))
@@ -42,6 +43,7 @@ async def admin_panel(message: Message):
     builder.add(InlineKeyboardButton(text="🎧 Управление уроками", callback_data="admin_lessons"))
     builder.add(InlineKeyboardButton(text="🎓 Управление тестами", callback_data="admin_tests"))
     builder.add(InlineKeyboardButton(text="👥 Управление пользователями", callback_data="admin_users"))
+    builder.add(InlineKeyboardButton(text="📨 Обращения", callback_data="admin_feedbacks"))
     builder.add(InlineKeyboardButton(text="📊 Статистика", callback_data="admin_stats"))
     builder.add(InlineKeyboardButton(text="ℹ️ Справка", callback_data="admin_help"))
     builder.add(InlineKeyboardButton(text="🏠 Главное меню", callback_data="main_menu"))
@@ -202,6 +204,7 @@ async def admin_panel_callback(callback: CallbackQuery):
     builder.add(InlineKeyboardButton(text="🎧 Управление уроками", callback_data="admin_lessons"))
     builder.add(InlineKeyboardButton(text="🎓 Управление тестами", callback_data="admin_tests"))
     builder.add(InlineKeyboardButton(text="👥 Управление пользователями", callback_data="admin_users"))
+    builder.add(InlineKeyboardButton(text="📨 Обращения", callback_data="admin_feedbacks"))
     builder.add(InlineKeyboardButton(text="📊 Статистика", callback_data="admin_stats"))
     builder.add(InlineKeyboardButton(text="ℹ️ Справка", callback_data="admin_help"))
     builder.add(InlineKeyboardButton(text="🏠 Главное меню", callback_data="main_menu"))

@@ -14,6 +14,7 @@ if TYPE_CHECKING:
     from bot.models.role import Role
     from bot.models.test_attempt import TestAttempt
     from bot.models.bookmark import Bookmark
+    from bot.models.feedback import Feedback
 
 
 class User(Base):
@@ -35,6 +36,7 @@ class User(Base):
     role: Mapped["Role"] = relationship(back_populates="users")
     test_attempts: Mapped[list["TestAttempt"]] = relationship(back_populates="user", cascade="all, delete-orphan")
     bookmarks: Mapped[list["Bookmark"]] = relationship(back_populates="user", cascade="all, delete-orphan")
+    feedbacks: Mapped[list["Feedback"]] = relationship(back_populates="user", cascade="all, delete-orphan")
     
     def __repr__(self) -> str:
         return f"<User(id={self.id}, telegram_id={self.telegram_id}, username='{self.username}')>"

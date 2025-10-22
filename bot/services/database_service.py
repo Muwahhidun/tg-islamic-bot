@@ -9,7 +9,7 @@ from sqlalchemy.orm import joinedload
 from bot.models import (
     User, Role, Theme, BookAuthor, LessonTeacher,
     Book, Lesson, LessonSeries, async_session_maker,
-    Test, TestQuestion, TestAttempt, Bookmark
+    Test, TestQuestion, TestAttempt, Bookmark, Feedback
 )
 from bot.utils.timezone_utils import get_moscow_now
 
@@ -1384,6 +1384,113 @@ async def delete_bookmark(bookmark_id: int) -> bool:
         bookmark = await session.get(Bookmark, bookmark_id)
         if bookmark:
             await session.delete(bookmark)
+            await session.commit()
+            return True
+        return False
+
+
+# ==================== ОБРАТНАЯ СВЯЗЬ ====================
+
+async def create_feedback(user_id: int, message_text: str) -> Feedback:
+    """Создать обращение обратной связи"""
+    async with async_session_maker() as session:
+        feedback = Feedback(
+            user_id=user_id,
+            message_text=message_text,
+            status="new",
+            created_at=get_moscow_now()
+        )
+        session.add(feedback)
+        await session.commit()
+        await session.refresh(feedback)
+        return feedback
+
+
+async def get_feedback_by_id(feedback_id: int) -> Feedback | None:
+    """Получить обращение по ID"""
+    async with async_session_maker() as session:
+        result = await session.execute(
+            select(Feedback)
+            .options(joinedload(Feedback.user))
+            .where(Feedback.id == feedback_id)
+        )
+        return result.scalar_one_or_none()
+
+
+async def get_all_feedbacks(status: str | None = None) -> list[Feedback]:
+    """
+    Получить все обращения с фильтром по статусу
+
+    Args:
+        status: Фильтр по статусу (new, replied, closed) или None для всех
+    """
+    async with async_session_maker() as session:
+        query = select(Feedback).options(joinedload(Feedback.user))
+
+        if status:
+            query = query.where(Feedback.status == status)
+
+        query = query.order_by(Feedback.created_at.desc())
+
+        result = await session.execute(query)
+        return result.scalars().unique().all()
+
+
+async def get_feedbacks_by_user(user_id: int) -> list[Feedback]:
+    """Получить все обращения пользователя"""
+    async with async_session_maker() as session:
+        result = await session.execute(
+            select(Feedback)
+            .options(joinedload(Feedback.user))
+            .where(Feedback.user_id == user_id)
+            .order_by(Feedback.created_at.desc())
+        )
+        return result.scalars().unique().all()
+
+
+async def count_feedbacks_by_status(status: str) -> int:
+    """Подсчитать количество обращений по статусу"""
+    async with async_session_maker() as session:
+        result = await session.execute(
+            select(func.count(Feedback.id))
+            .where(Feedback.status == status)
+        )
+        return result.scalar_one()
+
+
+async def update_feedback_reply(feedback_id: int, admin_reply: str) -> Feedback | None:
+    """Обновить ответ админа на обращение"""
+    async with async_session_maker() as session:
+        feedback = await session.get(Feedback, feedback_id)
+        if feedback:
+            feedback.admin_reply = admin_reply
+            feedback.status = "replied"
+            feedback.replied_at = get_moscow_now()
+            await session.commit()
+            await session.refresh(feedback)
+            return feedback
+        return None
+
+
+async def close_feedback(feedback_id: int) -> Feedback | None:
+    """Закрыть обращение"""
+    async with async_session_maker() as session:
+        feedback = await session.get(Feedback, feedback_id)
+        if feedback:
+            feedback.status = "closed"
+            feedback.closed_at = get_moscow_now()
+            await session.commit()
+            await session.refresh(feedback)
+            return feedback
+        return None
+
+
+async def delete_feedback(feedback_id: int) -> bool:
+    """Удалить обращение"""
+    async with async_session_maker() as session:
+        feedback = await session.get(Feedback, feedback_id)
+        if feedback:
+            await session.delete(feedback)
             await session.commit()
             return True
         return False

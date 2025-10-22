@@ -14,6 +14,7 @@ from bot.models.test import Test
 from bot.models.test_question import TestQuestion
 from bot.models.test_attempt import TestAttempt
 from bot.models.bookmark import Bookmark
+from bot.models.feedback import Feedback
 
 __all__ = [
     "Base",
@@ -30,5 +31,6 @@ __all__ = [
     "Test",
     "TestQuestion",
     "TestAttempt",
-    "Bookmark"
+    "Bookmark",
+    "Feedback"
 ]
