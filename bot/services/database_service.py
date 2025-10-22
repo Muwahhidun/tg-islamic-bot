@@ -789,6 +789,66 @@ async def get_series_by_teacher(teacher_id: int) -> List[LessonSeries]:
         return result.scalars().unique().all()
 
 
+async def get_themes_by_teacher(teacher_id: int) -> List[Theme]:
+    """Получение уникальных тем преподавателя"""
+    async with async_session_maker() as session:
+        result = await session.execute(
+            select(Theme)
+            .join(LessonSeries, LessonSeries.theme_id == Theme.id)
+            .where(
+                LessonSeries.teacher_id == teacher_id,
+                LessonSeries.is_active == True,
+                Theme.is_active == True
+            )
+            .distinct()
+            .order_by(Theme.name)
+        )
+        return result.scalars().unique().all()
+
+
+async def get_books_by_teacher_and_theme(teacher_id: int, theme_id: int) -> List[Book]:
+    """Получение книг преподавателя по теме"""
+    async with async_session_maker() as session:
+        result = await session.execute(
+            select(Book)
+            .options(
+                joinedload(Book.author),
+                joinedload(Book.theme)
+            )
+            .join(LessonSeries, LessonSeries.book_id == Book.id)
+            .where(
+                LessonSeries.teacher_id == teacher_id,
+                Book.theme_id == theme_id,
+                LessonSeries.is_active == True,
+                Book.is_active == True
+            )
+            .distinct()
+            .order_by(Book.name)
+        )
+        return result.scalars().unique().all()
+
+
+async def get_series_by_teacher_and_book(teacher_id: int, book_id: int) -> List[LessonSeries]:
+    """Получение серий преподавателя по книге"""
+    async with async_session_maker() as session:
+        result = await session.execute(
+            select(LessonSeries)
+            .options(
+                joinedload(LessonSeries.teacher),
+                joinedload(LessonSeries.book),
+                joinedload(LessonSeries.theme),
+                joinedload(LessonSeries.lessons)
+            )
+            .where(
+                LessonSeries.teacher_id == teacher_id,
+                LessonSeries.book_id == book_id,
+                LessonSeries.is_active == True
+            )
+            .order_by(LessonSeries.year.desc(), LessonSeries.name)
+        )
+        return result.scalars().unique().all()
+
+
 async def get_series_by_book(book_id: int) -> List[LessonSeries]:
     """Получение всех активных серий книги"""
     async with async_session_maker() as session:

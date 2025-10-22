@@ -18,6 +18,7 @@ def get_main_keyboard(is_admin: bool = False) -> InlineKeyboardMarkup:
     """
     buttons = [
         [InlineKeyboardButton(text="📚 Список тем", callback_data="show_themes")],
+        [InlineKeyboardButton(text="👤 Список преподавателей", callback_data="show_teachers")],
         [InlineKeyboardButton(text="📌 Закладки", callback_data="bookmarks")],
         [InlineKeyboardButton(text="💬 Обратная связь", callback_data="feedback")],
         [InlineKeyboardButton(text="ℹ️ О проекте", callback_data="about_project")],
@@ -409,7 +410,7 @@ def get_cancel_keyboard() -> ReplyKeyboardMarkup:
 def get_confirm_keyboard() -> InlineKeyboardMarkup:
     """
     Клавиатура подтверждения действия
-    
+
     Returns:
         InlineKeyboardMarkup: Клавиатура подтверждения
     """
@@ -422,3 +423,131 @@ def get_confirm_keyboard() -> InlineKeyboardMarkup:
         ]
     )
     return keyboard
+
+
+def get_teachers_keyboard(teachers: list) -> InlineKeyboardMarkup:
+    """
+    Клавиатура со списком преподавателей
+
+    Args:
+        teachers: Список преподавателей
+
+    Returns:
+        InlineKeyboardMarkup: Клавиатура с преподавателями
+    """
+    keyboard = []
+
+    for teacher in teachers:
+        keyboard.append([InlineKeyboardButton(
+            text=f"🎙️ {teacher.name}",
+            callback_data=f"teacher_{teacher.id}"
+        )])
+
+    # Кнопка "Главное меню"
+    keyboard.append([InlineKeyboardButton(
+        text="🏠 Главное меню",
+        callback_data="main_menu"
+    )])
+
+    return InlineKeyboardMarkup(inline_keyboard=keyboard)
+
+
+def get_teacher_themes_keyboard(themes: list, teacher_id: int) -> InlineKeyboardMarkup:
+    """
+    Клавиатура со списком тем преподавателя
+
+    Args:
+        themes: Список тем
+        teacher_id: ID преподавателя
+
+    Returns:
+        InlineKeyboardMarkup: Клавиатура с темами
+    """
+    keyboard = []
+
+    for theme in themes:
+        keyboard.append([InlineKeyboardButton(
+            text=f"🔹 {theme.name}",
+            callback_data=f"teacher_{teacher_id}_theme_{theme.id}"
+        )])
+
+    # Навигация
+    keyboard.append([InlineKeyboardButton(
+        text="⬅️ Назад к преподавателям",
+        callback_data="back_to_teachers"
+    )])
+    keyboard.append([InlineKeyboardButton(
+        text="🏠 Главное меню",
+        callback_data="main_menu"
+    )])
+
+    return InlineKeyboardMarkup(inline_keyboard=keyboard)
+
+
+def get_teacher_books_keyboard(books: list, teacher_id: int, theme_id: int) -> InlineKeyboardMarkup:
+    """
+    Клавиатура со списком книг преподавателя по теме
+
+    Args:
+        books: Список книг
+        teacher_id: ID преподавателя
+        theme_id: ID темы
+
+    Returns:
+        InlineKeyboardMarkup: Клавиатура с книгами
+    """
+    keyboard = []
+
+    for book in books:
+        keyboard.append([InlineKeyboardButton(
+            text=f"📖 {book.display_name}",
+            callback_data=f"teacher_{teacher_id}_book_{book.id}"
+        )])
+
+    # Навигация
+    keyboard.append([InlineKeyboardButton(
+        text="⬅️ Назад к темам",
+        callback_data=f"teacher_{teacher_id}"
+    )])
+    keyboard.append([InlineKeyboardButton(
+        text="🏠 Главное меню",
+        callback_data="main_menu"
+    )])
+
+    return InlineKeyboardMarkup(inline_keyboard=keyboard)
+
+
+def get_teacher_series_keyboard(series_list: list, teacher_id: int, book_id: int) -> InlineKeyboardMarkup:
+    """
+    Клавиатура со списком серий преподавателя по книге
+
+    Args:
+        series_list: Список серий
+        teacher_id: ID преподавателя
+        book_id: ID книги
+
+    Returns:
+        InlineKeyboardMarkup: Клавиатура с сериями
+    """
+    keyboard = []
+
+    for series in series_list:
+        # Показываем год, название и количество уроков
+        lessons_count = series.active_lessons_count
+        text = f"📁 {series.year} - {series.name} ({lessons_count} уроков)"
+        keyboard.append([InlineKeyboardButton(
+            text=text,
+            callback_data=f"series_{series.id}"
+        )])
+
+    # Навигация
+    keyboard.append([InlineKeyboardButton(
+        text="⬅️ Назад к книгам",
+        callback_data=f"teacher_{teacher_id}_theme_{series_list[0].theme_id if series_list and series_list[0].theme_id else 'none'}"
+    )])
+    keyboard.append([InlineKeyboardButton(
+        text="🏠 Главное меню",
+        callback_data="main_menu"
+    )])
+
+    return InlineKeyboardMarkup(inline_keyboard=keyboard)

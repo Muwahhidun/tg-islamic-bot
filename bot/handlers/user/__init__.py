@@ -7,13 +7,14 @@ from bot.services.database_service import UserService
 from bot.keyboards.user import get_main_keyboard
 from bot.utils.decorators import is_user_admin
 
-from . import themes, series, lessons, search, tests, bookmarks, feedback
+from . import themes, series, lessons, search, tests, bookmarks, feedback, teachers
 
 # Main router
 router = Router()
 
 # Include sub-routers
 router.include_router(themes.router)
+router.include_router(teachers.router)  # Teachers navigation
 router.include_router(series.router)  # Series must come before lessons (book_ handler)
 router.include_router(lessons.router)
 router.include_router(search.router)
