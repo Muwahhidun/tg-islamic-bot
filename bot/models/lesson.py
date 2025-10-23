@@ -31,7 +31,7 @@ class Lesson(Base):
     # Связь с серией (новое поле)
     series_id: Mapped[int | None] = mapped_column(
         Integer,
-        ForeignKey("lesson_series.id", ondelete="SET NULL"),
+        ForeignKey("lesson_series.id", ondelete="RESTRICT"),
         nullable=True,
         index=True
     )

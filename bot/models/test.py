@@ -29,7 +29,7 @@ class Test(Base):
     # Связь с серией (обязательно - один тест на серию)
     series_id: Mapped[int] = mapped_column(
         Integer,
-        ForeignKey("lesson_series.id", ondelete="CASCADE"),
+        ForeignKey("lesson_series.id", ondelete="RESTRICT"),
         nullable=False,
         index=True
     )

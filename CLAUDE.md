@@ -90,6 +90,20 @@ User Features:
 - `LessonTeacher` - Modern instructors who deliver lessons
 - `LessonSeries` - Groups lessons by teacher, year, and topic/book
 
+**CASCADE/RESTRICT Rules (onDelete behavior):**
+
+When deleting entities:
+- **Theme** deleted → books.theme_id, lesson_series.theme_id → SET NULL (books/series remain)
+- **BookAuthor** deleted → books.author_id → SET NULL (books remain)
+- **Book** deleted → lessons.book_id, lesson_series.book_id → SET NULL (lessons/series remain)
+- **LessonTeacher** deleted → RESTRICT if has series/tests, otherwise lessons.teacher_id → SET NULL
+- **LessonSeries** deleted → **RESTRICT** if has lessons/tests (cannot delete series with content)
+- **Lesson** deleted → CASCADE deletes bookmarks, test_questions; test_attempts.lesson_id → SET NULL
+- **User** deleted → CASCADE deletes all user data (bookmarks, test_attempts, feedbacks)
+- **Test** deleted → CASCADE deletes all test_questions and test_attempts
+
+**Critical:** Cannot delete LessonSeries if it has lessons or tests attached. Must delete/move lessons first.
+
 ### Handler Architecture
 
 **Two-tier system:**

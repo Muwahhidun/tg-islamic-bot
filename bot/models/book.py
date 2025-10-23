@@ -35,7 +35,7 @@ class Book(Base):
     # Отношения
     theme: Mapped[Optional["Theme"]] = relationship(back_populates="books")
     author: Mapped[Optional["BookAuthor"]] = relationship(back_populates="books")
-    lessons: Mapped[list["Lesson"]] = relationship(back_populates="book", cascade="all, delete-orphan")
+    lessons: Mapped[list["Lesson"]] = relationship(back_populates="book", cascade="save-update, merge")
     lesson_series: Mapped[list["LessonSeries"]] = relationship(back_populates="book")
     
     def __repr__(self) -> str:
