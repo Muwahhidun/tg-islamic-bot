@@ -72,6 +72,11 @@ Theme (Акыда, Сира, Фикх, Адаб)
   └── Book (has optional BookAuthor and Theme)
       └── LessonSeries (year + name, belongs to Teacher, optional Book/Theme)
           └── Lesson (series_id FK, audio file, number, title, description, tags)
+              └── Test (optional, linked to Series)
+
+User Features:
+  └── Bookmark (user saves lesson with custom name, max 20 per user)
+  └── Feedback (3-status workflow: new → replied → closed)
 ```
 
 **CRITICAL: Series Migration**
@@ -92,11 +97,19 @@ Theme (Акыда, Сира, Фикх, Адаб)
    - `themes.py` - Browse themes
    - `lessons.py` - Playback and navigation
    - `search.py` - Search functionality
+   - `bookmarks.py` - User bookmarks management (max 20 per user)
+   - `feedback.py` - User feedback submission
+   - `teachers.py` - Browse lessons by teacher
+   - `series.py` - Browse lessons by series
+   - `tests.py` - Testing functionality
 
 2. **Admin handlers** (`bot/handlers/admin/`) - Management interface
    - Entity CRUD: `themes.py`, `authors.py`, `books.py`, `teachers.py`, `series.py`
    - `lessons.py` - Lesson management with audio upload
    - `users.py` - User and role management
+   - `tests.py` - Test and question management
+   - `feedbacks.py` - Feedback management (3-status workflow)
+   - `stats.py` - Platform statistics
 
 **Single-Window UX Pattern (CRITICAL):**
 
@@ -278,9 +291,17 @@ bot/audio_files/
 5. Extract duration via FFmpeg
 6. Create Lesson record with file path
 
+**Web Converter Service:**
+- Separate Docker container on port 1992
+- Handles audio format conversion (to MP3 64-128 kbps)
+- Shared FFmpeg utilities between bot and converter (`bot/utils/`)
+- Authentication via `WEB_CONVERTER_SECRET` in `.env`
+- Service location: `web-converter/main.py`
+
 **Key Utilities:**
-- `bot/utils/ffmpeg_utils.py` - Audio processing
+- `bot/utils/ffmpeg_utils.py` - Audio processing (shared)
 - `bot/utils/file_utils.py` - File operations
+- `bot/utils/audio_converter.py` - Integration with web-converter service
 
 ### Timezone Handling
 
@@ -305,6 +326,38 @@ bot/audio_files/
    - Single-window creation flow
 4. **Register router** in `bot/handlers/admin/__init__.py`
 5. **Add navigation** to admin panel
+
+### Context-Aware Navigation Pattern
+
+**Preserving user context in navigation:**
+
+When users navigate from different entry points (themes → books → lessons vs teachers → series → lessons), handlers must preserve context for proper back navigation:
+
+```python
+# Pattern: Save context in FSM state
+await state.update_data(
+    lesson_id=lesson_id,
+    teacher_id=teacher_id,  # May be None for general navigation
+    bookmark_message_id=callback.message.message_id,
+    bookmark_chat_id=callback.message.chat.id
+)
+
+# Pattern: Context-aware callbacks
+data = await state.get_data()
+teacher_id = data.get("teacher_id")
+
+if teacher_id:
+    # User came from teacher view - return there
+    callback_data = f"teacher_{teacher_id}_play_lesson_{lesson_id}"
+else:
+    # User came from general view
+    callback_data = f"lesson_{lesson_id}"
+```
+
+**Used extensively in:**
+- `bot/handlers/user/bookmarks.py` - Bookmark management with context preservation
+- `bot/handlers/user/lessons.py` - Lesson playback from different entry points
+- `bot/handlers/user/teachers.py` - Teacher-specific lesson browsing
 
 ### Series-Related Queries
 
@@ -341,6 +394,29 @@ for lesson in lessons:
                 "lessons": []
             }
         series_map[key]["lessons"].append(lesson)
+```
+
+### Feedback System Workflow
+
+**Three-status model (`bot/models/feedback.py`):**
+
+1. **new** (🆕) - User submits feedback
+2. **replied** (✅) - Admin sends reply to user via bot
+3. **closed** (🔒) - Feedback marked as resolved
+
+**Admin workflow (`bot/handlers/admin/feedbacks.py`):**
+```python
+# View all feedbacks grouped by status
+# Reply to user directly through bot (sends message to user's Telegram)
+# Status automatically changes: new → replied → closed
+# Timestamps tracked: created_at, replied_at, closed_at
+```
+
+**User workflow (`bot/handlers/user/feedback.py`):**
+```python
+# Simple form submission
+# Receives admin reply as bot message
+# Can view feedback history
 ```
 
 ### Database Migrations
@@ -433,11 +509,13 @@ See `EMOJI_GUIDE.md` for full documentation. Key rules:
 - ✍️ Авторы книг
 - 👤 Преподаватели
 - 🎧 Уроки
-- 📁 Серии (NOT 📚 or 🎙️)
-- 🎓 Тесты (NOT 📝)
-- ❓ Вопросы теста
+- 📁 Серии (NOT 📚 or 🎙️ - this is critical!)
+- 🎓 Тесты (NOT 📝 - 📝 is not used for tests!)
+- ❓ Вопросы теста (ONLY for test questions, NOT for help/info)
 - 👥 Пользователи
 - 🏷️ Теги
+- 📌 Закладки
+- 💬 Обратная связь
 
 **Actions:**
 - ✏️ Edit short fields (name, title, year)
@@ -446,7 +524,7 @@ See `EMOJI_GUIDE.md` for full documentation. Key rules:
 - 🗑️ Delete
 - 🔙 Back
 - ✅/❌ Yes/No, Active/Inactive
-- ℹ️ Help/Info (NOT ❓)
+- ℹ️ Help/Info (NOT ❓ - ❓ is ONLY for test questions!)
 
 ## Critical Reminders
 
@@ -460,3 +538,8 @@ See `EMOJI_GUIDE.md` for full documentation. Key rules:
 8. **Always use `await`** - Async ORM
 9. **Try/except on message.delete()** - May already be deleted
 10. **Moscow timezone** - Naive datetimes only
+11. **Context preservation** - Save teacher_id/context for proper back navigation
+12. **Emoji consistency** - 📁 for series, 🎓 for tests, ❓ ONLY for test questions, ℹ️ for help
+13. **Bookmarks limit** - Max 20 per user, enforce in add_bookmark handler
+14. **Feedback status flow** - new → replied → closed (update timestamps accordingly)
+15. **Telegram file_id caching** - Store in `lesson.telegram_file_id` for faster re-sending

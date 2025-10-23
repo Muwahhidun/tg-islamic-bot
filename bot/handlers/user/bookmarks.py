@@ -117,7 +117,7 @@ async def show_bookmark_details(callback: CallbackQuery, state: FSMContext, user
     # Формируем текст с полной информацией
     text = f"📌 <b>Закладка: \"{bookmark.custom_name}\"</b>\n\n"
     text += "━━━━━━━━━━━━━━━━━━━━\n\n"
-    text += f"🎧 <b>Урок {lesson.lesson_number}:</b> {lesson.title}\n\n"
+    text += f"🎧 <b>Урок {lesson.lesson_number}</b>\n\n"
 
     # Тема
     if lesson.book and lesson.book.theme:
@@ -232,7 +232,7 @@ async def add_bookmark_start(callback: CallbackQuery, state: FSMContext, user):
 
     text = (
         "📌 <b>Добавление в закладки</b>\n\n"
-        f"🎧 Урок {lesson.lesson_number}: {lesson.title}\n"
+        f"🎧 Урок {lesson.lesson_number}\n"
     )
 
     if lesson.book and lesson.book.theme:
@@ -255,6 +255,7 @@ async def add_bookmark_save(message: Message, state: FSMContext):
     """Сохранение закладки после ввода названия"""
     data = await state.get_data()
     lesson_id = data.get("lesson_id")
+    teacher_id = data.get("teacher_id")  # Может быть None для общей навигации
     message_id = data.get("bookmark_message_id")
     chat_id = data.get("bookmark_chat_id")
 
@@ -284,6 +285,12 @@ async def add_bookmark_save(message: Message, state: FSMContext):
         await state.clear()
         return
 
+    # Формируем callback для возврата к уроку с учётом контекста
+    if teacher_id:
+        back_to_lesson_callback = f"teacher_{teacher_id}_play_lesson_{lesson_id}"
+    else:
+        back_to_lesson_callback = f"lesson_{lesson_id}"
+
     # Создаём закладку
     try:
         bookmark = await create_bookmark(
@@ -299,7 +306,7 @@ async def add_bookmark_save(message: Message, state: FSMContext):
 
         keyboard = InlineKeyboardMarkup(inline_keyboard=[
             [InlineKeyboardButton(text="📌 Мои закладки", callback_data="bookmarks")],
-            [InlineKeyboardButton(text="⬅️ К уроку", callback_data=f"lesson_{lesson_id}")]
+            [InlineKeyboardButton(text="⬅️ К уроку", callback_data=back_to_lesson_callback)]
         ])
 
         # Обновляем исходное сообщение
@@ -314,7 +321,7 @@ async def add_bookmark_save(message: Message, state: FSMContext):
         logger.error(f"Ошибка создания закладки: {e}")
         text = "❌ Ошибка при сохранении закладки. Попробуйте позже."
         keyboard = InlineKeyboardMarkup(inline_keyboard=[
-            [InlineKeyboardButton(text="⬅️ К уроку", callback_data=f"lesson_{lesson_id}")]
+            [InlineKeyboardButton(text="⬅️ К уроку", callback_data=back_to_lesson_callback)]
         ])
         await message.bot.edit_message_caption(
             chat_id=chat_id,
@@ -367,6 +374,7 @@ async def rename_bookmark_save(message: Message, state: FSMContext):
     """Сохранение нового названия закладки"""
     data = await state.get_data()
     bookmark_id = data.get("bookmark_id")
+    teacher_id = data.get("teacher_id")  # Может быть None для общей навигации
     message_id = data.get("rename_message_id")
     chat_id = data.get("rename_chat_id")
 
@@ -387,6 +395,17 @@ async def rename_bookmark_save(message: Message, state: FSMContext):
     except:
         pass
 
+    # Формируем callback для возврата к закладке с учётом контекста
+    if teacher_id:
+        # Сначала нужно получить lesson_id из закладки
+        bookmark_obj = await get_bookmark_by_id(bookmark_id)
+        if bookmark_obj:
+            back_callback = f"teacher_{teacher_id}_remove_bookmark_{bookmark_obj.lesson_id}"
+        else:
+            back_callback = f"bookmark_{bookmark_id}"
+    else:
+        back_callback = f"bookmark_{bookmark_id}"
+
     # Обновляем название
     try:
         bookmark = await update_bookmark_name(bookmark_id, new_name)
@@ -401,7 +420,7 @@ async def rename_bookmark_save(message: Message, state: FSMContext):
             text = "❌ Закладка не найдена"
 
         keyboard = InlineKeyboardMarkup(inline_keyboard=[
-            [InlineKeyboardButton(text="⬅️ Назад к закладке", callback_data=f"bookmark_{bookmark_id}")]
+            [InlineKeyboardButton(text="⬅️ Назад к закладке", callback_data=back_callback)]
         ])
 
         await message.bot.edit_message_caption(
@@ -415,7 +434,7 @@ async def rename_bookmark_save(message: Message, state: FSMContext):
         logger.error(f"Ошибка переименования закладки: {e}")
         text = "❌ Ошибка при переименовании. Попробуйте позже."
         keyboard = InlineKeyboardMarkup(inline_keyboard=[
-            [InlineKeyboardButton(text="⬅️ Назад", callback_data=f"bookmark_{bookmark_id}")]
+            [InlineKeyboardButton(text="⬅️ Назад", callback_data=back_callback)]
         ])
         await message.bot.edit_message_caption(
             chat_id=chat_id,
@@ -506,7 +525,7 @@ async def remove_bookmark_from_lesson(callback: CallbackQuery, state: FSMContext
 
     text = f"📌 <b>Закладка: \"{bookmark.custom_name}\"</b>\n\n"
     text += "━━━━━━━━━━━━━━━━━━━━\n\n"
-    text += f"🎧 <b>Урок {lesson.lesson_number}:</b> {lesson.title}\n\n"
+    text += f"🎧 <b>Урок {lesson.lesson_number}</b>\n\n"
 
     if lesson.book and lesson.book.theme:
         text += f"📚 Тема: {lesson.book.theme.name}\n"

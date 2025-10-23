@@ -209,7 +209,7 @@ def get_lessons_keyboard(lessons: list[Lesson], series_id: int, has_tests: dict 
     has_tests = has_tests or {}
 
     for lesson in lessons:
-        title = lesson.display_title
+        title = f"Урок {lesson.lesson_number}"
         if lesson.duration_seconds:
             duration_formatted = lesson.formatted_duration
             title += f" ({duration_formatted})"
@@ -369,7 +369,7 @@ def get_search_results_keyboard(lessons: list[Lesson], query: str) -> InlineKeyb
     keyboard = []
 
     for lesson in lessons:
-        title = lesson.display_title
+        title = f"Урок {lesson.lesson_number}"
         # Добавляем информацию о книге и теме
         title += f"\n📖 {lesson.book_title} | 🔹 {lesson.theme_name}"
 
@@ -440,7 +440,7 @@ def get_teachers_keyboard(teachers: list) -> InlineKeyboardMarkup:
     for teacher in teachers:
         keyboard.append([InlineKeyboardButton(
             text=f"🎙️ {teacher.name}",
-            callback_data=f"teacher_{teacher.id}"
+            callback_data=f"teacher_nav_{teacher.id}"
         )])
 
     # Кнопка "Главное меню"
@@ -507,7 +507,7 @@ def get_teacher_books_keyboard(books: list, teacher_id: int, theme_id: int) -> I
     # Навигация
     keyboard.append([InlineKeyboardButton(
         text="⬅️ Назад к темам",
-        callback_data=f"teacher_{teacher_id}"
+        callback_data=f"teacher_nav_{teacher_id}"
     )])
     keyboard.append([InlineKeyboardButton(
         text="🏠 Главное меню",
@@ -537,7 +537,7 @@ def get_teacher_series_keyboard(series_list: list, teacher_id: int, book_id: int
         text = f"📁 {series.year} - {series.name} ({lessons_count} уроков)"
         keyboard.append([InlineKeyboardButton(
             text=text,
-            callback_data=f"series_{series.id}"
+            callback_data=f"teacher_{teacher_id}_series_{series.id}"
         )])
 
     # Навигация
@@ -548,6 +548,169 @@ def get_teacher_series_keyboard(series_list: list, teacher_id: int, book_id: int
     keyboard.append([InlineKeyboardButton(
         text="🏠 Главное меню",
         callback_data="main_menu"
+    )])
+
+    return InlineKeyboardMarkup(inline_keyboard=keyboard)
+
+
+def get_teacher_series_menu_keyboard(series_id: int, teacher_id: int, book_id: int, has_test: bool = False) -> InlineKeyboardMarkup:
+    """
+    Клавиатура меню серии для навигации через преподавателей (Уроки / Общий тест / Назад)
+
+    Args:
+        series_id: ID серии
+        teacher_id: ID преподавателя
+        book_id: ID книги
+        has_test: Есть ли тест для серии
+
+    Returns:
+        InlineKeyboardMarkup: Клавиатура меню серии
+    """
+    keyboard = []
+
+    # Кнопка "Уроки"
+    keyboard.append([InlineKeyboardButton(
+        text="🎧 Уроки",
+        callback_data=f"teacher_{teacher_id}_series_lessons_{series_id}"
+    )])
+
+    # Кнопка "Общий тест" (если тест существует)
+    if has_test:
+        keyboard.append([InlineKeyboardButton(
+            text="🎓 Общий тест",
+            callback_data=f"teacher_{teacher_id}_general_test_{series_id}"
+        )])
+
+    # Кнопка "Назад" к списку серий преподавателя
+    keyboard.append([InlineKeyboardButton(
+        text="⬅️ Назад к сериям",
+        callback_data=f"teacher_{teacher_id}_book_{book_id}"
+    )])
+
+    return InlineKeyboardMarkup(inline_keyboard=keyboard)
+
+
+def get_teacher_lessons_keyboard(lessons: list, series_id: int, teacher_id: int, book_id: int, has_tests: dict = None) -> InlineKeyboardMarkup:
+    """
+    Клавиатура со списком уроков серии для навигации через преподавателей
+
+    Args:
+        lessons: Список уроков
+        series_id: ID серии
+        teacher_id: ID преподавателя
+        book_id: ID книги
+        has_tests: Словарь {lesson_id: bool} - есть ли тест для урока
+
+    Returns:
+        InlineKeyboardMarkup: Клавиатура с уроками и тестами
+    """
+    keyboard = []
+    has_tests = has_tests or {}
+
+    for lesson in lessons:
+        title = f"Урок {lesson.lesson_number}"
+        if lesson.duration_seconds:
+            duration_formatted = lesson.formatted_duration
+            title += f" ({duration_formatted})"
+
+        # Кнопка урока (с контекстом преподавателя)
+        keyboard.append([InlineKeyboardButton(
+            text=f"🎧 {title}",
+            callback_data=f"teacher_{teacher_id}_play_lesson_{lesson.id}"
+        )])
+
+        # Кнопка теста под уроком (если тест существует)
+        if has_tests.get(lesson.id, False):
+            keyboard.append([InlineKeyboardButton(
+                text=f"🎓 Тест по уроку {lesson.lesson_number}",
+                callback_data=f"teacher_{teacher_id}_lesson_test_{lesson.id}"
+            )])
+
+    # Навигация
+    keyboard.append([InlineKeyboardButton(
+        text="⬅️ Назад к серии",
+        callback_data=f"teacher_{teacher_id}_series_{series_id}"
+    )])
+    keyboard.append([InlineKeyboardButton(
+        text="🏠 Главное меню",
+        callback_data="main_menu"
+    )])
+
+    return InlineKeyboardMarkup(inline_keyboard=keyboard)
+
+
+def get_teacher_lesson_control_keyboard(lesson: Lesson, teacher_id: int, has_test: bool = False, has_bookmark: bool = False) -> InlineKeyboardMarkup:
+    """
+    Клавиатура управления воспроизведением урока для навигации через преподавателей
+
+    Args:
+        lesson: Объект урока
+        teacher_id: ID преподавателя (для правильной кнопки Назад)
+        has_test: Есть ли тест для серии урока
+        has_bookmark: Есть ли закладка на этот урок
+
+    Returns:
+        InlineKeyboardMarkup: Клавиатура управления
+    """
+    keyboard = []
+
+    # Первая строка - навигация
+    nav_buttons = []
+    nav_buttons.append(InlineKeyboardButton(
+        text="⬅️ Предыдущий",
+        callback_data=f"teacher_{teacher_id}_prev_{lesson.id}"
+    ))
+    nav_buttons.append(InlineKeyboardButton(
+        text="➡️ Следующий",
+        callback_data=f"teacher_{teacher_id}_next_{lesson.id}"
+    ))
+    keyboard.append(nav_buttons)
+
+    # Следующая строка - информация о книге и авторе (горизонтально)
+    book_author_buttons = []
+    if lesson.book:
+        book_author_buttons.append(InlineKeyboardButton(
+            text="ℹ️ О книге",
+            callback_data=f"book_info_{lesson.book.id}"
+        ))
+    if lesson.book and lesson.book.author:
+        book_author_buttons.append(InlineKeyboardButton(
+            text="ℹ️ Об авторе",
+            callback_data=f"author_{lesson.book.author.id}"
+        ))
+    if book_author_buttons:
+        keyboard.append(book_author_buttons)
+
+    # Третья строка - информация о преподавателе
+    if lesson.teacher:
+        keyboard.append([InlineKeyboardButton(
+            text="ℹ️ О преподавателе",
+            callback_data=f"teacher_{lesson.teacher.id}"
+        )])
+
+    # Кнопка теста (если есть)
+    if has_test:
+        keyboard.append([InlineKeyboardButton(
+            text="🎓 Пройти тест по уроку",
+            callback_data=f"teacher_{teacher_id}_lesson_test_{lesson.id}"
+        )])
+
+    # Кнопка закладки (после теста) - с контекстом преподавателя
+    if has_bookmark:
+        keyboard.append([InlineKeyboardButton(
+            text="➖ В закладках",
+            callback_data=f"teacher_{teacher_id}_remove_bookmark_{lesson.id}"
+        )])
+    else:
+        keyboard.append([InlineKeyboardButton(
+            text="➕ Добавить в закладки",
+            callback_data=f"teacher_{teacher_id}_add_bookmark_{lesson.id}"
+        )])
+
+    # Последняя строка - возврат (с контекстом преподавателя)
+    keyboard.append([InlineKeyboardButton(
+        text="⬅️ К урокам",
+        callback_data=f"teacher_{teacher_id}_series_lessons_{lesson.series_id}"
     )])
 
     return InlineKeyboardMarkup(inline_keyboard=keyboard)

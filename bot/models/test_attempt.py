@@ -35,6 +35,12 @@ class TestAttempt(Base):
         nullable=False,
         index=True
     )
+    lesson_id: Mapped[int | None] = mapped_column(
+        Integer,
+        ForeignKey("lessons.id", ondelete="SET NULL"),
+        nullable=True,
+        index=True
+    )  # None = общий тест по серии, иначе = тест конкретного урока
 
     # Временные метки
     started_at: Mapped[datetime] = mapped_column(DateTime, default=get_moscow_now, nullable=False)

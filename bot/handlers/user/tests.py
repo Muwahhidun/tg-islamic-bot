@@ -30,13 +30,61 @@ class TestStates(StatesGroup):
     current_question = State()
 
 
+async def get_back_to_lesson_callback(lesson_id: int, state: FSMContext) -> str:
+    """
+    Формирует правильный callback для возврата к уроку с учётом контекста навигации.
+
+    Args:
+        lesson_id: ID урока
+        state: FSM context для проверки teacher_id
+
+    Returns:
+        str: Callback data для кнопки возврата к уроку
+    """
+    data = await state.get_data()
+    teacher_id = data.get("teacher_id")
+
+    if teacher_id:
+        return f"teacher_{teacher_id}_play_lesson_{lesson_id}"
+    else:
+        return f"lesson_{lesson_id}"
+
+
+async def get_back_to_series_callback(series_id: int, state: FSMContext) -> str:
+    """
+    Формирует правильный callback для возврата к серии с учётом контекста навигации.
+
+    Args:
+        series_id: ID серии
+        state: FSM context для проверки teacher_id
+
+    Returns:
+        str: Callback data для кнопки возврата к серии
+    """
+    data = await state.get_data()
+    teacher_id = data.get("teacher_id")
+
+    if teacher_id:
+        return f"teacher_{teacher_id}_series_{series_id}"
+    else:
+        return f"series_{series_id}"
+
+
 # ==================== ПОКАЗ ДОСТУПНЫХ ТЕСТОВ ====================
 
 @router.callback_query(F.data.startswith("test_after_lesson_"))
 @user_required_callback
-async def show_test_after_lesson(callback: CallbackQuery, state: FSMContext):
+async def show_test_after_lesson(callback: CallbackQuery, state: FSMContext, user):
     """Показать тест после прослушивания урока"""
-    lesson_id = int(callback.data.split("_")[3])
+    parts = callback.data.split("_")
+    lesson_id_str = parts[3]
+
+    # Если lesson_id это "None", значит это общий тест - не обрабатываем здесь
+    if lesson_id_str == "None":
+        await callback.answer("❌ Ошибка навигации", show_alert=True)
+        return
+
+    lesson_id = int(lesson_id_str)
 
     # Получаем урок и его серию
     from bot.services.database_service import get_lesson_by_id
@@ -51,8 +99,9 @@ async def show_test_after_lesson(callback: CallbackQuery, state: FSMContext):
 
     if not test or not test.is_active:
         text = "🎓 <b>Тест</b>\n\n❌ Для этого урока пока нет теста."
+        back_callback = await get_back_to_lesson_callback(lesson_id, state)
         keyboard = InlineKeyboardMarkup(inline_keyboard=[[
-            InlineKeyboardButton(text="🔙 Назад к уроку", callback_data=f"lesson_{lesson_id}")
+            InlineKeyboardButton(text="🔙 Назад к уроку", callback_data=back_callback)
         ]])
 
         # ПАТТЕРН ОДНОГО ОКНА: проверяем тип сообщения
@@ -73,8 +122,9 @@ async def show_test_after_lesson(callback: CallbackQuery, state: FSMContext):
 
     if not questions:
         text = "🎓 <b>Тест</b>\n\n❌ Для этого урока пока нет вопросов."
+        back_callback = await get_back_to_lesson_callback(lesson_id, state)
         keyboard = InlineKeyboardMarkup(inline_keyboard=[[
-            InlineKeyboardButton(text="🔙 Назад к уроку", callback_data=f"lesson_{lesson_id}")
+            InlineKeyboardButton(text="🔙 Назад к уроку", callback_data=back_callback)
         ]])
 
         # ПАТТЕРН ОДНОГО ОКНА: проверяем тип сообщения
@@ -90,9 +140,8 @@ async def show_test_after_lesson(callback: CallbackQuery, state: FSMContext):
         await callback.answer()
         return
 
-    # Получаем лучшую попытку пользователя
-    user_id = callback.from_user.id
-    best_attempt = await get_best_attempt(user_id, test.id)
+    # Получаем лучшую попытку пользователя для этого урока (используем database user_id)
+    best_attempt = await get_best_attempt(user.id, test.id, lesson_id)
 
     # Формируем информацию о тесте
     text = f"🎓 <b>{test.title}</b>\n\n"
@@ -114,12 +163,12 @@ async def show_test_after_lesson(callback: CallbackQuery, state: FSMContext):
         text="🎯 Начать тест",
         callback_data=f"start_test_{test.id}_{lesson_id}"
     ))
-    if best_attempt:
-        builder.add(InlineKeyboardButton(
-            text="📊 История попыток",
-            callback_data=f"test_history_{test.id}_{lesson_id}"
-        ))
-    builder.add(InlineKeyboardButton(text="⬅️ Назад к уроку", callback_data=f"lesson_{lesson_id}"))
+    builder.add(InlineKeyboardButton(
+        text="📊 История попыток",
+        callback_data=f"test_history_{test.id}_{lesson_id}"
+    ))
+    back_callback = await get_back_to_lesson_callback(lesson_id, state)
+    builder.add(InlineKeyboardButton(text="⬅️ Назад к уроку", callback_data=back_callback))
     builder.adjust(1)
 
     # ПАТТЕРН ОДНОГО ОКНА: проверяем тип сообщения
@@ -143,7 +192,7 @@ async def start_test(callback: CallbackQuery, state: FSMContext):
     """Начать прохождение теста"""
     parts = callback.data.split("_")
     test_id = int(parts[2])
-    lesson_id = int(parts[3])
+    lesson_id = int(parts[3]) if parts[3] != "None" else None
 
     # Получаем тест и вопросы
     from bot.services.database_service import get_test_by_id
@@ -262,20 +311,28 @@ async def show_test_results(callback: CallbackQuery, state: FSMContext):
     percentage = int(score / max_score * 100) if max_score > 0 else 0
 
     # Получаем тест для определения прохождения
-    from bot.services.database_service import get_test_by_id
+    from bot.services.database_service import get_test_by_id, get_user_by_telegram_id
     test = await get_test_by_id(test_id)
     passed = percentage >= test.passing_score
+
+    # Получаем database user_id по telegram_id
+    user = await get_user_by_telegram_id(callback.from_user.id)
+    if not user:
+        await callback.answer("❌ Пользователь не найден", show_alert=True)
+        await state.clear()
+        return
 
     # Сохраняем попытку
     try:
         attempt = await create_attempt(
-            user_id=callback.from_user.id,
+            user_id=user.id,  # database user_id, а не telegram_id
             test_id=test_id,
             score=score,
             max_score=max_score,
             passed=passed,
             answers=answers,
-            time_spent_seconds=0  # TODO: добавить подсчёт времени
+            time_spent_seconds=0,  # TODO: добавить подсчёт времени
+            lesson_id=lesson_id  # None для общего теста, иначе ID урока
         )
     except Exception as e:
         logger.error(f"Ошибка сохранения попытки: {e}")
@@ -294,14 +351,58 @@ async def show_test_results(callback: CallbackQuery, state: FSMContext):
         text += f"Для прохождения нужно: {test.passing_score}%\n"
         text += f"Вам не хватило: {test.passing_score - percentage}%"
 
+    # Проверяем контекст навигации через преподавателя
+    data = await state.get_data()
+    teacher_id = data.get("teacher_id")
+
     builder = InlineKeyboardBuilder()
-    builder.add(InlineKeyboardButton(text="🔄 Пройти ещё раз", callback_data=f"start_test_{test_id}_{lesson_id}"))
-    builder.add(InlineKeyboardButton(text="📊 История попыток", callback_data=f"test_history_{test_id}_{lesson_id}"))
-    builder.add(InlineKeyboardButton(text="⬅️ Назад к уроку", callback_data=f"lesson_{lesson_id}"))
+
+    # Проверяем тип теста: урок или общий
+    if lesson_id is None:
+        # ОБЩИЙ ТЕСТ (по всей серии)
+        # Получаем series_id для возврата
+        series_id = test.series_id if test else None
+
+        if teacher_id and series_id:
+            # Через преподавателей
+            builder.add(InlineKeyboardButton(text="🔄 Пройти ещё раз", callback_data=f"teacher_{teacher_id}_general_test_{series_id}"))
+            builder.add(InlineKeyboardButton(text="📊 История попыток", callback_data=f"general_test_history_{test_id}_{series_id}"))
+            back_callback = await get_back_to_series_callback(series_id, state)
+            builder.add(InlineKeyboardButton(text="⬅️ Назад к серии", callback_data=back_callback))
+        else:
+            # Через темы
+            builder.add(InlineKeyboardButton(text="🔄 Пройти ещё раз", callback_data=f"start_general_test_{test_id}_{series_id}"))
+            builder.add(InlineKeyboardButton(text="📊 История попыток", callback_data=f"general_test_history_{test_id}_{series_id}"))
+            if series_id:
+                builder.add(InlineKeyboardButton(text="⬅️ Назад к серии", callback_data=f"series_{series_id}"))
+            else:
+                builder.add(InlineKeyboardButton(text="🏠 Главное меню", callback_data="main_menu"))
+    else:
+        # ТЕСТ УРОКА
+        back_callback = await get_back_to_lesson_callback(lesson_id, state)
+
+        if teacher_id:
+            # Через преподавателей
+            builder.add(InlineKeyboardButton(text="🔄 Пройти ещё раз", callback_data=f"teacher_{teacher_id}_start_test_{test_id}_{lesson_id}"))
+            builder.add(InlineKeyboardButton(text="📊 История попыток", callback_data=f"test_history_{test_id}_{lesson_id}"))
+        else:
+            # Через темы
+            builder.add(InlineKeyboardButton(text="🔄 Пройти ещё раз", callback_data=f"start_test_{test_id}_{lesson_id}"))
+            builder.add(InlineKeyboardButton(text="📊 История попыток", callback_data=f"test_history_{test_id}_{lesson_id}"))
+
+        builder.add(InlineKeyboardButton(text="⬅️ Назад к уроку", callback_data=back_callback))
+
     builder.adjust(1)
 
     await callback.message.edit_text(text, reply_markup=builder.as_markup())
-    await state.clear()
+
+    # Очищаем состояние, но сохраняем teacher_id если он есть
+    if teacher_id:
+        await state.clear()
+        await state.update_data(teacher_id=teacher_id)
+    else:
+        await state.clear()
+
     await callback.answer("✅ Результат сохранён!")
 
 
@@ -320,11 +421,12 @@ async def cancel_test(callback: CallbackQuery, state: FSMContext):
         series_id = data.get("series_id")
 
         if series_id:
+            back_callback = await get_back_to_series_callback(series_id, state)
             await callback.message.edit_text(
                 "❌ <b>Тест отменён</b>\n\n"
                 "Ваш прогресс не сохранён.",
                 reply_markup=InlineKeyboardMarkup(inline_keyboard=[[
-                    InlineKeyboardButton(text="⬅️ Назад к серии", callback_data=f"series_{series_id}")
+                    InlineKeyboardButton(text="⬅️ Назад к серии", callback_data=back_callback)
                 ]])
             )
         else:
@@ -340,11 +442,13 @@ async def cancel_test(callback: CallbackQuery, state: FSMContext):
         # Тест урока - возвращаемся к уроку
         lesson_id = int(lesson_id_str)
 
+        back_callback = await get_back_to_lesson_callback(lesson_id, state)
+
         await callback.message.edit_text(
             "❌ <b>Тест отменён</b>\n\n"
             "Ваш прогресс не сохранён.",
             reply_markup=InlineKeyboardMarkup(inline_keyboard=[[
-                InlineKeyboardButton(text="⬅️ Назад к уроку", callback_data=f"lesson_{lesson_id}")
+                InlineKeyboardButton(text="⬅️ Назад к уроку", callback_data=back_callback)
             ]])
         )
 
@@ -356,26 +460,39 @@ async def cancel_test(callback: CallbackQuery, state: FSMContext):
 
 @router.callback_query(F.data.startswith("test_history_"))
 @user_required_callback
-async def show_test_history(callback: CallbackQuery):
+async def show_test_history(callback: CallbackQuery, state: FSMContext, user):
     """Показать историю попыток"""
     parts = callback.data.split("_")
     test_id = int(parts[2])
-    lesson_id = int(parts[3])
+    lesson_id = int(parts[3]) if parts[3] != "None" else None
 
-    # Получаем все попытки пользователя
+    # Получаем все попытки пользователя (используем database user_id)
     from bot.services.database_service import get_attempts_by_user
-    attempts = await get_attempts_by_user(callback.from_user.id, test_id)
+    attempts = await get_attempts_by_user(user.id, test_id)
 
     # Фильтруем попытки для конкретного урока
     lesson_attempts = [a for a in attempts if a.lesson_id == lesson_id]
+
+    # Определяем правильный callback для возврата
+    if lesson_id:
+        back_callback = await get_back_to_lesson_callback(lesson_id, state)
+    else:
+        # Для общих тестов нужно вернуться к списку общих тестов
+        # Получаем series_id из теста
+        from bot.services.database_service import get_test_by_id
+        test = await get_test_by_id(test_id)
+        if test and test.series_id:
+            back_callback = await get_back_to_series_callback(test.series_id, state)
+        else:
+            back_callback = "menu"
 
     if not lesson_attempts:
         await callback.message.edit_text(
             "📊 <b>История попыток</b>\n\n"
             "❌ У вас пока нет попыток по этому тесту.",
             reply_markup=InlineKeyboardMarkup(inline_keyboard=[[
-                InlineKeyboardButton(text="🎯 Пройти тест", callback_data=f"start_test_{test_id}_{lesson_id}"),
-                InlineKeyboardButton(text="⬅️ Назад", callback_data=f"test_after_lesson_{lesson_id}")
+                InlineKeyboardButton(text="🎯 Пройти тест", callback_data=f"start_test_{test_id}_{lesson_id if lesson_id else 'None'}"),
+                InlineKeyboardButton(text="⬅️ Назад", callback_data=back_callback)
             ]])
         )
         await callback.answer()
@@ -403,8 +520,8 @@ async def show_test_history(callback: CallbackQuery):
     text += f"\n🏆 <b>Лучший результат:</b> {best.score}/{best.max_score} ({int(best.score / best.max_score * 100)}%)"
 
     builder = InlineKeyboardBuilder()
-    builder.add(InlineKeyboardButton(text="🔄 Пройти ещё раз", callback_data=f"start_test_{test_id}_{lesson_id}"))
-    builder.add(InlineKeyboardButton(text="⬅️ Назад", callback_data=f"test_after_lesson_{lesson_id}"))
+    builder.add(InlineKeyboardButton(text="🔄 Пройти ещё раз", callback_data=f"start_test_{test_id}_{lesson_id if lesson_id else 'None'}"))
+    builder.add(InlineKeyboardButton(text="⬅️ Назад", callback_data=back_callback))
     builder.adjust(1)
 
     await callback.message.edit_text(text, reply_markup=builder.as_markup())
@@ -429,9 +546,9 @@ async def start_lesson_test_new(callback: CallbackQuery, state: FSMContext):
 
 # ==================== ОБЩИЙ ТЕСТ ПО СЕРИИ ====================
 
-@router.callback_query(F.data.startswith("general_test_"))
+@router.callback_query(F.data.startswith("general_test_") & ~F.data.startswith("general_test_history_"))
 @user_required_callback
-async def show_general_test(callback: CallbackQuery, state: FSMContext):
+async def show_general_test(callback: CallbackQuery, state: FSMContext, user):
     """Показать общий тест по всей серии"""
     series_id = int(callback.data.split("_")[2])
 
@@ -446,11 +563,12 @@ async def show_general_test(callback: CallbackQuery, state: FSMContext):
     test = await get_test_by_series(series_id)
 
     if not test or not test.is_active:
+        back_callback = await get_back_to_series_callback(series_id, state)
         await callback.message.edit_text(
             "🎓 <b>Общий тест</b>\n\n"
             "❌ Для этой серии пока нет теста.",
             reply_markup=InlineKeyboardMarkup(inline_keyboard=[[
-                InlineKeyboardButton(text="⬅️ Назад к серии", callback_data=f"series_{series_id}")
+                InlineKeyboardButton(text="⬅️ Назад к серии", callback_data=back_callback)
             ]])
         )
         await callback.answer()
@@ -460,19 +578,19 @@ async def show_general_test(callback: CallbackQuery, state: FSMContext):
     all_questions = await get_questions_by_test(test.id)
 
     if not all_questions:
+        back_callback = await get_back_to_series_callback(series_id, state)
         await callback.message.edit_text(
             "🎓 <b>Общий тест</b>\n\n"
             "❌ В этом тесте пока нет вопросов.",
             reply_markup=InlineKeyboardMarkup(inline_keyboard=[[
-                InlineKeyboardButton(text="⬅️ Назад к серии", callback_data=f"series_{series_id}")
+                InlineKeyboardButton(text="⬅️ Назад к серии", callback_data=back_callback)
             ]])
         )
         await callback.answer()
         return
 
-    # Получаем лучшую попытку пользователя (без привязки к уроку)
-    user_id = callback.from_user.id
-    best_attempt = await get_best_attempt(user_id, test.id)
+    # Получаем лучшую попытку пользователя для общего теста (lesson_id=None)
+    best_attempt = await get_best_attempt(user.id, test.id, lesson_id=None)
 
     # Формируем информацию о тесте
     text = f"🎓 <b>{test.title}</b>\n\n"
@@ -489,17 +607,18 @@ async def show_general_test(callback: CallbackQuery, state: FSMContext):
 
     text += "Готовы начать общий тест по всей серии?"
 
+    back_callback = await get_back_to_series_callback(series_id, state)
+
     builder = InlineKeyboardBuilder()
     builder.add(InlineKeyboardButton(
         text="🎯 Начать тест",
         callback_data=f"start_general_test_{test.id}_{series_id}"
     ))
-    if best_attempt:
-        builder.add(InlineKeyboardButton(
-            text="📊 История попыток",
-            callback_data=f"general_test_history_{test.id}_{series_id}"
-        ))
-    builder.add(InlineKeyboardButton(text="⬅️ Назад к серии", callback_data=f"series_{series_id}"))
+    builder.add(InlineKeyboardButton(
+        text="📊 История попыток",
+        callback_data=f"general_test_history_{test.id}_{series_id}"
+    ))
+    builder.add(InlineKeyboardButton(text="⬅️ Назад к серии", callback_data=back_callback))
     builder.adjust(1)
 
     await callback.message.edit_text(text, reply_markup=builder.as_markup())
@@ -548,15 +667,15 @@ async def start_general_test(callback: CallbackQuery, state: FSMContext):
 
 @router.callback_query(F.data.startswith("general_test_history_"))
 @user_required_callback
-async def show_general_test_history(callback: CallbackQuery):
+async def show_general_test_history(callback: CallbackQuery, user):
     """Показать историю попыток общего теста"""
     parts = callback.data.split("_")
     test_id = int(parts[3])
     series_id = int(parts[4])
 
-    # Получаем все попытки пользователя
+    # Получаем все попытки пользователя (используем database user_id)
     from bot.services.database_service import get_attempts_by_user
-    attempts = await get_attempts_by_user(callback.from_user.id, test_id)
+    attempts = await get_attempts_by_user(user.id, test_id)
 
     # Фильтруем попытки общего теста (без привязки к уроку)
     general_attempts = [a for a in attempts if a.lesson_id is None]
@@ -567,7 +686,7 @@ async def show_general_test_history(callback: CallbackQuery):
             "❌ У вас пока нет попыток по этому тесту.",
             reply_markup=InlineKeyboardMarkup(inline_keyboard=[[
                 InlineKeyboardButton(text="🎯 Пройти тест", callback_data=f"start_general_test_{test_id}_{series_id}"),
-                InlineKeyboardButton(text="🔙 Назад", callback_data=f"general_test_{series_id}")
+                InlineKeyboardButton(text="⬅️ Назад", callback_data=f"general_test_{series_id}")
             ]])
         )
         await callback.answer()
@@ -596,7 +715,7 @@ async def show_general_test_history(callback: CallbackQuery):
 
     builder = InlineKeyboardBuilder()
     builder.add(InlineKeyboardButton(text="🔄 Пройти ещё раз", callback_data=f"start_general_test_{test_id}_{series_id}"))
-    builder.add(InlineKeyboardButton(text="🔙 Назад", callback_data=f"general_test_{series_id}"))
+    builder.add(InlineKeyboardButton(text="⬅️ Назад", callback_data=f"general_test_{series_id}"))
     builder.adjust(1)
 
     await callback.message.edit_text(text, reply_markup=builder.as_markup())

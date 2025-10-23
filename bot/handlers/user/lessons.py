@@ -35,7 +35,7 @@ async def play_lesson(callback: CallbackQuery):
 
     # Формирование описания урока
     caption = (
-        f"🎧 {lesson.display_title}\n\n"
+        f"🎧 Урок {lesson.lesson_number}\n\n"
         f"📖 Книга: «{lesson.book_title}»\n"
         f"✍️ Автор: {lesson.book.author_info if lesson.book and lesson.book.author else 'Не указан'}\n"
         f"🎙️ Преподаватель: {lesson.teacher_name}\n"
@@ -235,7 +235,7 @@ async def show_author_info(callback: CallbackQuery):
     await callback.answer()
 
 
-@router.callback_query(F.data.startswith("teacher_"))
+@router.callback_query(F.data.regexp(r"^teacher_\d+$"))
 @user_required_callback
 async def show_teacher_info(callback: CallbackQuery):
     """

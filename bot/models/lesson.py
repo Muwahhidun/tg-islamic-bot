@@ -4,7 +4,7 @@
 from datetime import datetime
 from typing import TYPE_CHECKING, Optional
 
-from sqlalchemy import String, Text, Integer, Boolean, DateTime, ForeignKey
+from sqlalchemy import String, Text, Integer, Boolean, DateTime, ForeignKey, UniqueConstraint
 from sqlalchemy.orm import Mapped, mapped_column, relationship, validates
 
 from bot.models.database import Base
@@ -20,9 +20,12 @@ if TYPE_CHECKING:
 
 class Lesson(Base):
     """Модель урока"""
-    
+
     __tablename__ = "lessons"
-    
+    __table_args__ = (
+        UniqueConstraint('series_id', 'lesson_number', name='unique_lesson_number_per_series'),
+    )
+
     id: Mapped[int] = mapped_column(Integer, primary_key=True)
 
     # Связь с серией (новое поле)
@@ -85,8 +88,8 @@ class Lesson(Base):
     def display_title(self) -> str:
         """Отображаемое название урока с номером"""
         if self.lesson_number:
-            return f"Урок {self.lesson_number}: {self.title}"
-        return self.title
+            return f"Урок {self.lesson_number}"
+        return "Без номера"
     
     @property
     def tags_list(self) -> list[str]:
@@ -146,7 +149,7 @@ class Lesson(Base):
     @property
     def full_display_title(self) -> str:
         """Полное отображаемое название с серией"""
-        lesson_part = f"Урок {self.lesson_number}: {self.title}" if self.lesson_number else self.title
+        lesson_part = f"Урок {self.lesson_number}" if self.lesson_number else "Без номера"
         return f"{self.series_display} | {lesson_part}"
 
     def has_audio(self) -> bool:

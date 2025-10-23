@@ -1,6 +1,8 @@
 """
 Управление преподавателями
 """
+import logging
+
 from aiogram import Router, F
 from aiogram.fsm.context import FSMContext
 from aiogram.fsm.state import State, StatesGroup
@@ -17,7 +19,10 @@ from bot.services.database_service import (
     delete_lesson_teacher,
     get_all_lessons,
     get_all_books,
+    regenerate_teacher_lessons_titles,
 )
+
+logger = logging.getLogger(__name__)
 
 router = Router()
 
@@ -276,8 +281,15 @@ async def edit_teacher_name_save(message: Message, state: FSMContext):
         # Редактирование существующего преподавателя
         teacher = await get_lesson_teacher_by_id(teacher_id)
         if teacher:
+            old_name = teacher.name
             teacher.name = new_name
             await update_lesson_teacher(teacher)
+
+            # Регенерируем тайтлы всех уроков этого преподавателя
+            if old_name != new_name:
+                updated_lessons = await regenerate_teacher_lessons_titles(teacher_id)
+                if updated_lessons > 0:
+                    logger.info(f"Регенерировано названий уроков: {updated_lessons} (преподаватель {teacher_id})")
 
             # Удаляем сообщение пользователя
             try:

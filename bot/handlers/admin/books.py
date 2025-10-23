@@ -1,6 +1,8 @@
 """
 Управление книгами
 """
+import logging
+
 from aiogram import Router, F
 from aiogram.fsm.context import FSMContext
 from aiogram.fsm.state import State, StatesGroup
@@ -16,7 +18,10 @@ from bot.services.database_service import (
     delete_book,
     get_all_themes,
     get_all_book_authors,
+    regenerate_book_lessons_titles,
 )
+
+logger = logging.getLogger(__name__)
 
 router = Router()
 
@@ -121,8 +126,15 @@ async def add_book_name(message: Message, state: FSMContext):
         book_id = data["book_id"]
         book = await get_book_by_id(book_id)
         if book:
+            old_name = book.name
             book.name = new_name
             await update_book(book)
+
+            # Регенерируем тайтлы всех уроков этой книги
+            if old_name != new_name:
+                updated_lessons = await regenerate_book_lessons_titles(book_id)
+                if updated_lessons > 0:
+                    logger.info(f"Регенерировано названий уроков: {updated_lessons} (книга {book_id})")
 
             # Удаляем сообщение пользователя
             try:

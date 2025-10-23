@@ -20,7 +20,8 @@ from bot.services.database_service import (
     get_all_themes,
     bulk_update_series_lessons,
     bulk_update_book_lessons,
-    update_book
+    update_book,
+    regenerate_series_lessons_titles
 )
 
 router = Router()
@@ -213,6 +214,13 @@ async def save_series_name(message: Message, state: FSMContext):
 
     series.name = message.text.strip()
     await update_lesson_series(series)
+
+    # Регенерируем названия всех уроков этой серии
+    updated_lessons = await regenerate_series_lessons_titles(series_id)
+    if updated_lessons > 0:
+        import logging
+        logger = logging.getLogger(__name__)
+        logger.info(f"Регенерировано названий уроков: {updated_lessons} (серия {series_id})")
 
     # Перезагружаем серию с актуальными данными
     series = await get_series_by_id(series_id)
@@ -427,6 +435,13 @@ async def save_series_year(message: Message, state: FSMContext):
 
     series.year = year
     await update_lesson_series(series)
+
+    # Регенерируем названия всех уроков этой серии
+    updated_lessons = await regenerate_series_lessons_titles(series_id)
+    if updated_lessons > 0:
+        import logging
+        logger = logging.getLogger(__name__)
+        logger.info(f"Регенерировано названий уроков: {updated_lessons} (серия {series_id})")
 
     # Перезагружаем серию с актуальными данными
     series = await get_series_by_id(series_id)

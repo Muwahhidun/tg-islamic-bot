@@ -874,6 +874,7 @@ async def get_series_by_id(series_id: int) -> Optional[LessonSeries]:
             select(LessonSeries)
             .options(
                 joinedload(LessonSeries.teacher),
+                joinedload(LessonSeries.book).joinedload(Book.author),
                 joinedload(LessonSeries.book).joinedload(Book.theme),
                 joinedload(LessonSeries.theme),
                 joinedload(LessonSeries.lessons)
@@ -959,6 +960,252 @@ async def delete_lesson_series(series_id: int) -> bool:
         )
         await session.commit()
         return result.rowcount > 0
+
+
+async def regenerate_teacher_lessons_titles(teacher_id: int) -> int:
+    """
+    Регенерирует названия (title) всех уроков преподавателя после изменения teacher.name
+    Также сбрасывает telegram_file_id чтобы в плеере обновилось название
+    Возвращает количество обновлённых уроков
+    """
+    async with async_session_maker() as session:
+        # Загружаем преподавателя
+        result = await session.execute(
+            select(LessonTeacher).where(LessonTeacher.id == teacher_id)
+        )
+        teacher = result.scalar_one_or_none()
+
+        if not teacher:
+            return 0
+
+        # Загружаем все уроки этого преподавателя
+        result = await session.execute(
+            select(Lesson)
+            .where(Lesson.teacher_id == teacher_id)
+            .options(
+                joinedload(Lesson.series),
+                joinedload(Lesson.book)
+            )
+        )
+        lessons = result.scalars().unique().all()
+
+        updated_count = 0
+
+        # Функция генерации названия
+        def generate_lesson_title(teacher_name: str, book_name: str, series_year: int, series_name: str, lesson_number: int) -> str:
+            parts = []
+            if teacher_name:
+                parts.append(teacher_name.replace(" ", "_"))
+            if book_name:
+                parts.append(book_name.replace(" ", "_"))
+            parts.append(str(series_year))
+            parts.append(series_name.replace(" ", "_"))
+            parts.append(f"урок_{lesson_number}")
+            return "_".join(parts)
+
+        # Обновляем каждый урок
+        for lesson in lessons:
+            if not lesson.series:
+                continue
+
+            new_title = generate_lesson_title(
+                teacher_name=teacher.name,
+                book_name=lesson.book.name if lesson.book else "",
+                series_year=lesson.series.year,
+                series_name=lesson.series.name,
+                lesson_number=lesson.lesson_number if lesson.lesson_number else 0
+            )
+
+            # Обновляем только если название изменилось
+            if lesson.title != new_title:
+                lesson.title = new_title
+                lesson.telegram_file_id = None  # Сбрасываем кэш
+                updated_count += 1
+
+        await session.commit()
+        return updated_count
+
+
+async def regenerate_book_lessons_titles(book_id: int) -> int:
+    """
+    Регенерирует названия (title) всех уроков книги после изменения book.name
+    Также сбрасывает telegram_file_id чтобы в плеере обновилось название
+    Возвращает количество обновлённых уроков
+    """
+    async with async_session_maker() as session:
+        # Загружаем книгу
+        result = await session.execute(
+            select(Book).where(Book.id == book_id)
+        )
+        book = result.scalar_one_or_none()
+
+        if not book:
+            return 0
+
+        # Загружаем все уроки этой книги
+        result = await session.execute(
+            select(Lesson)
+            .where(Lesson.book_id == book_id)
+            .options(
+                joinedload(Lesson.series),
+                joinedload(Lesson.teacher)
+            )
+        )
+        lessons = result.scalars().unique().all()
+
+        updated_count = 0
+
+        # Функция генерации названия
+        def generate_lesson_title(teacher_name: str, book_name: str, series_year: int, series_name: str, lesson_number: int) -> str:
+            parts = []
+            if teacher_name:
+                parts.append(teacher_name.replace(" ", "_"))
+            if book_name:
+                parts.append(book_name.replace(" ", "_"))
+            parts.append(str(series_year))
+            parts.append(series_name.replace(" ", "_"))
+            parts.append(f"урок_{lesson_number}")
+            return "_".join(parts)
+
+        # Обновляем каждый урок
+        for lesson in lessons:
+            if not lesson.series:
+                continue
+
+            new_title = generate_lesson_title(
+                teacher_name=lesson.teacher.name if lesson.teacher else "",
+                book_name=book.name,
+                series_year=lesson.series.year,
+                series_name=lesson.series.name,
+                lesson_number=lesson.lesson_number if lesson.lesson_number else 0
+            )
+
+            # Обновляем только если название изменилось
+            if lesson.title != new_title:
+                lesson.title = new_title
+                lesson.telegram_file_id = None  # Сбрасываем кэш
+                updated_count += 1
+
+        await session.commit()
+        return updated_count
+
+
+async def regenerate_lesson_title(lesson_id: int) -> bool:
+    """
+    Регенерирует название (title) конкретного урока после изменения lesson.lesson_number
+    Также сбрасывает telegram_file_id чтобы в плеере обновилось название
+    Возвращает True если название было обновлено
+    """
+    async with async_session_maker() as session:
+        # Загружаем урок со всеми relationships
+        result = await session.execute(
+            select(Lesson)
+            .where(Lesson.id == lesson_id)
+            .options(
+                joinedload(Lesson.series),
+                joinedload(Lesson.teacher),
+                joinedload(Lesson.book)
+            )
+        )
+        lesson = result.scalar_one_or_none()
+
+        if not lesson or not lesson.series:
+            return False
+
+        # Функция генерации названия
+        def generate_lesson_title(teacher_name: str, book_name: str, series_year: int, series_name: str, lesson_number: int) -> str:
+            parts = []
+            if teacher_name:
+                parts.append(teacher_name.replace(" ", "_"))
+            if book_name:
+                parts.append(book_name.replace(" ", "_"))
+            parts.append(str(series_year))
+            parts.append(series_name.replace(" ", "_"))
+            parts.append(f"урок_{lesson_number}")
+            return "_".join(parts)
+
+        new_title = generate_lesson_title(
+            teacher_name=lesson.teacher.name if lesson.teacher else "",
+            book_name=lesson.book.name if lesson.book else "",
+            series_year=lesson.series.year,
+            series_name=lesson.series.name,
+            lesson_number=lesson.lesson_number if lesson.lesson_number else 0
+        )
+
+        # Обновляем только если название изменилось
+        if lesson.title != new_title:
+            lesson.title = new_title
+            lesson.telegram_file_id = None  # Сбрасываем кэш
+            await session.commit()
+            return True
+
+        return False
+
+
+async def regenerate_series_lessons_titles(series_id: int) -> int:
+    """
+    Регенерирует названия (title) всех уроков серии после изменения series.name или series.year
+    Также сбрасывает telegram_file_id чтобы в плеере обновилось название
+    Возвращает количество обновлённых уроков
+    """
+    async with async_session_maker() as session:
+        # Загружаем серию с relationships
+        result = await session.execute(
+            select(LessonSeries)
+            .where(LessonSeries.id == series_id)
+            .options(
+                joinedload(LessonSeries.teacher),
+                joinedload(LessonSeries.book)
+            )
+        )
+        series = result.scalar_one_or_none()
+
+        if not series:
+            return 0
+
+        # Загружаем все уроки этой серии
+        result = await session.execute(
+            select(Lesson)
+            .where(Lesson.series_id == series_id)
+            .options(
+                joinedload(Lesson.teacher),
+                joinedload(Lesson.book)
+            )
+        )
+        lessons = result.scalars().unique().all()
+
+        updated_count = 0
+
+        # Функция генерации названия
+        def generate_lesson_title(teacher_name: str, book_name: str, series_year: int, series_name: str, lesson_number: int) -> str:
+            parts = []
+            if teacher_name:
+                parts.append(teacher_name.replace(" ", "_"))
+            if book_name:
+                parts.append(book_name.replace(" ", "_"))
+            parts.append(str(series_year))
+            parts.append(series_name.replace(" ", "_"))
+            parts.append(f"урок_{lesson_number}")
+            return "_".join(parts)
+
+        # Обновляем каждый урок
+        for lesson in lessons:
+            new_title = generate_lesson_title(
+                teacher_name=lesson.teacher.name if lesson.teacher else "",
+                book_name=lesson.book.name if lesson.book else "",
+                series_year=series.year,
+                series_name=series.name,
+                lesson_number=lesson.lesson_number if lesson.lesson_number else 0
+            )
+
+            # Обновляем только если название изменилось
+            if lesson.title != new_title:
+                lesson.title = new_title
+                lesson.telegram_file_id = None  # Сбрасываем кэш
+                updated_count += 1
+
+        await session.commit()
+        return updated_count
 
 
 async def bulk_update_series_lessons(series_id: int, book_id: Optional[int] = None, theme_id: Optional[int] = None) -> int:
@@ -1293,18 +1540,24 @@ async def get_attempts_by_user(user_id: int, test_id: Optional[int] = None) -> L
         return list(result.scalars().unique().all())
 
 
-async def get_best_attempt(user_id: int, test_id: int) -> Optional[TestAttempt]:
-    """Получить лучшую попытку пользователя по тесту"""
+async def get_best_attempt(user_id: int, test_id: int, lesson_id: Optional[int] = None) -> Optional[TestAttempt]:
+    """Получить лучшую попытку пользователя по тесту (с учётом lesson_id)"""
     async with async_session_maker() as session:
+        conditions = [
+            TestAttempt.user_id == user_id,
+            TestAttempt.test_id == test_id,
+            TestAttempt.completed_at.isnot(None)
+        ]
+
+        # Фильтруем по lesson_id (None = общий тест, иначе конкретный урок)
+        if lesson_id is None:
+            conditions.append(TestAttempt.lesson_id.is_(None))
+        else:
+            conditions.append(TestAttempt.lesson_id == lesson_id)
+
         result = await session.execute(
             select(TestAttempt)
-            .where(
-                and_(
-                    TestAttempt.user_id == user_id,
-                    TestAttempt.test_id == test_id,
-                    TestAttempt.completed_at.isnot(None)
-                )
-            )
+            .where(and_(*conditions))
             .order_by(TestAttempt.score.desc())
             .limit(1)
         )
@@ -1318,13 +1571,15 @@ async def create_attempt(
     max_score: int,
     passed: bool,
     answers: dict,
-    time_spent_seconds: int = 0
+    time_spent_seconds: int = 0,
+    lesson_id: Optional[int] = None
 ) -> TestAttempt:
-    """Создать новую попытку"""
+    """Создать новую попытку (lesson_id=None для общих тестов по серии)"""
     async with async_session_maker() as session:
         attempt = TestAttempt(
             user_id=user_id,
             test_id=test_id,
+            lesson_id=lesson_id,
             score=score,
             max_score=max_score,
             passed=passed,

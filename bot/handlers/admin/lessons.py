@@ -28,7 +28,8 @@ from bot.services.database_service import (
     delete_lesson,
     get_series_by_teacher,
     get_series_by_id,
-    check_lesson_number_exists
+    check_lesson_number_exists,
+    regenerate_lesson_title,
 )
 from bot.models.lesson import Lesson
 from bot.models.book import Book
@@ -43,7 +44,6 @@ router = Router()
 
 class LessonStates(StatesGroup):
     """Состояния для управления уроками"""
-    title = State()
     description = State()
     series_id = State()  # Выбор серии из списка
     book_id = State()
@@ -54,7 +54,6 @@ class LessonStates(StatesGroup):
     audio_file = State()
     replace_audio = State()  # Для замены аудиофайла
     # Состояния для редактирования
-    edit_title = State()
     edit_description = State()
     edit_number = State()
     edit_tags = State()
@@ -268,9 +267,9 @@ async def show_no_theme_no_book_lessons(callback: CallbackQuery):
     if len(series_map) == 1:
         series_data = list(series_map.values())[0]
         for lesson in sorted(series_data["lessons"], key=lambda x: x.lesson_number or 0):
-            lesson_num = f"#{lesson.lesson_number}" if lesson.lesson_number else "Без номера"
+            lesson_num = f"Урок {lesson.lesson_number}" if lesson.lesson_number else "Без номера"
             builder.add(InlineKeyboardButton(
-                text=f"{lesson_num} - {lesson.title}",
+                text=f"🎧 {lesson_num}",
                 callback_data=f"edit_lesson_{lesson.id}"
             ))
 
@@ -353,9 +352,9 @@ async def show_no_theme_book_series(callback: CallbackQuery):
     if len(series_map) == 1:
         series_data = list(series_map.values())[0]
         for lesson in sorted(series_data["lessons"], key=lambda x: x.lesson_number or 0):
-            lesson_num = f"#{lesson.lesson_number}" if lesson.lesson_number else "Без номера"
+            lesson_num = f"Урок {lesson.lesson_number}" if lesson.lesson_number else "Без номера"
             builder.add(InlineKeyboardButton(
-                text=f"{lesson_num} - {lesson.title}",
+                text=f"🎧 {lesson_num}",
                 callback_data=f"edit_lesson_{lesson.id}"
             ))
 
@@ -549,7 +548,7 @@ async def show_theme_lessons_without_book(callback: CallbackQuery):
     if len(series_map) == 1:
         series_data = list(series_map.values())[0]
         for lesson_data in series_data["lessons"]:
-            lesson_title = f"🎧 Урок {lesson_data['lesson_number']}: {lesson_data['title']}" if lesson_data['lesson_number'] else f"🎧 {lesson_data['title']}"
+            lesson_title = f"🎧 Урок {lesson_data['lesson_number']}" if lesson_data['lesson_number'] else "🎧 Без номера"
             if not lesson_data['is_active']:
                 lesson_title += " ❌"
 
@@ -739,7 +738,7 @@ async def show_series_lessons_by_id(callback: CallbackQuery):
     # Показываем уроки если есть
     if lessons_data:
         for lesson_data in lessons_data:
-            lesson_title = f"🎧 Урок {lesson_data['lesson_number']}: {lesson_data['title']}" if lesson_data['lesson_number'] else f"🎧 {lesson_data['title']}"
+            lesson_title = f"🎧 Урок {lesson_data['lesson_number']}" if lesson_data['lesson_number'] else "🎧 Без номера"
 
             # Добавляем статус активности
             if not lesson_data['is_active']:
@@ -807,52 +806,11 @@ async def add_lesson_with_series(callback: CallbackQuery, state: FSMContext):
     await callback.message.edit_text(
         "📝 <b>Добавление нового урока</b>\n\n"
         f"Серия: {series.year} - {series.name}\n\n"
-        "Шаг 1/4: Введите номер урока в серии:",
+        "Шаг 1/3: Введите номер урока в серии:",
         reply_markup=InlineKeyboardMarkup(inline_keyboard=[[InlineKeyboardButton(text="🔙 Отмена", callback_data=f"lessons_series_id_{series_id}")]])
     )
     await state.set_state(LessonStates.lesson_number)
     await callback.answer()
-
-
-@router.message(LessonStates.title)
-@admin_required
-async def add_lesson_title(message: Message, state: FSMContext):
-    """Сохранить название урока"""
-    data = await state.get_data()
-    series_id = data.get("series_id")
-
-    # Удаляем пользовательское сообщение
-    try:
-        await message.delete()
-    except:
-        pass
-
-    title = message.text.strip()
-
-    if not title:
-        await message.bot.edit_message_text(
-            chat_id=data['create_chat_id'],
-            message_id=data['create_message_id'],
-            text="❌ <b>Ошибка!</b>\n\nНазвание не может быть пустым.\n\nВведите название урока:",
-            reply_markup=InlineKeyboardMarkup(inline_keyboard=[
-                [InlineKeyboardButton(text="🔙 Отмена", callback_data=f"lessons_series_id_{series_id}")]
-            ])
-        )
-        return
-
-    await state.update_data(title=title)
-
-    await message.bot.edit_message_text(
-        chat_id=data['create_chat_id'],
-        message_id=data['create_message_id'],
-        text="✅ Название сохранено\n\n"
-             "Шаг 3/4: Введите описание урока:",
-        reply_markup=InlineKeyboardMarkup(inline_keyboard=[
-            [InlineKeyboardButton(text="⏭️ Пропустить", callback_data="skip_lesson_description")],
-            [InlineKeyboardButton(text="🔙 Отмена", callback_data=f"lessons_series_id_{series_id}")]
-        ])
-    )
-    await state.set_state(LessonStates.description)
 
 
 @router.callback_query(F.data == "skip_lesson_description")
@@ -866,7 +824,7 @@ async def add_lesson_skip_description(callback: CallbackQuery, state: FSMContext
 
     # Серия уже выбрана, переходим к тегам
     await callback.message.edit_text(
-        "Шаг 4/4: Введите теги для урока через запятую:",
+        "Шаг 3/3: Введите теги для урока через запятую:",
         reply_markup=InlineKeyboardMarkup(inline_keyboard=[
             [InlineKeyboardButton(text="⏭️ Пропустить", callback_data="skip_lesson_tags")],
             [InlineKeyboardButton(text="🔙 Отмена", callback_data=f"lessons_series_id_{series_id}")]
@@ -897,7 +855,7 @@ async def add_lesson_description(message: Message, state: FSMContext):
         chat_id=data['create_chat_id'],
         message_id=data['create_message_id'],
         text="✅ Описание сохранено\n\n"
-             "Шаг 4/4: Введите теги для урока через запятую:",
+             "Шаг 3/3: Введите теги для урока через запятую:",
         reply_markup=InlineKeyboardMarkup(inline_keyboard=[
             [InlineKeyboardButton(text="⏭️ Пропустить", callback_data="skip_lesson_tags")],
             [InlineKeyboardButton(text="🔙 Отмена", callback_data=f"lessons_series_id_{series_id}")]
@@ -944,19 +902,20 @@ async def add_lesson_number(message: Message, state: FSMContext):
             )
             return
 
-        # Сохраняем номер и переходим к названию
+        # Сохраняем номер и переходим к описанию
         await state.update_data(lesson_number=lesson_number)
 
         await message.bot.edit_message_text(
             chat_id=data['create_chat_id'],
             message_id=data['create_message_id'],
             text="✅ Номер урока сохранён\n\n"
-                 "Шаг 2/4: Введите название урока:",
+                 "Шаг 2/3: Введите описание урока:",
             reply_markup=InlineKeyboardMarkup(inline_keyboard=[
+                [InlineKeyboardButton(text="⏭️ Пропустить", callback_data="skip_lesson_description")],
                 [InlineKeyboardButton(text="🔙 Отмена", callback_data=f"lessons_series_id_{series_id}")]
             ])
         )
-        await state.set_state(LessonStates.title)
+        await state.set_state(LessonStates.description)
     except ValueError:
         await message.bot.edit_message_text(
             chat_id=data['create_chat_id'],
@@ -1157,10 +1116,19 @@ async def add_lesson_audio(message: Message, state: FSMContext):
         duration_seconds = 0
 
     # Создаём красивое имя файла на основе данных урока
-    # Получаем данные для имени файла
+    # Получаем данные для имени файла и названия урока
     teacher = await get_lesson_teacher_by_id(data["teacher_id"]) if data.get("teacher_id") else None
     book = await get_book_by_id(data["book_id"]) if data.get("book_id") else None
     series = await get_series_by_id(data["series_id"]) if data.get("series_id") else None
+
+    # Генерируем название урока автоматически
+    auto_generated_title = generate_lesson_title(
+        teacher_name=teacher.name if teacher else "",
+        book_name=book.name if book else "",
+        series_year=series.year if series else 0,
+        series_name=series.name if series else "",
+        lesson_number=data.get("lesson_number", 0)
+    )
 
     # Функция для очистки имени файла от недопустимых символов
     def sanitize_filename(name):
@@ -1198,7 +1166,7 @@ async def add_lesson_audio(message: Message, state: FSMContext):
     # Создаём урок в базе
     try:
         lesson = await create_lesson(
-            title=data["title"],
+            title=auto_generated_title,  # Автоматически сгенерированное название
             description=data.get("description", ""),
             audio_file_path=converted_path,  # Путь к MP3 с нормальным именем
             duration_seconds=duration_seconds,  # Автоматически определённая длительность
@@ -1224,6 +1192,30 @@ async def add_lesson_audio(message: Message, state: FSMContext):
             pass
 
         logger.info(f"Урок создан: {lesson.id} - {lesson.title}, длительность: {duration_seconds}с")
+
+        # Предзагрузка file_id: отправляем аудио админу для кэширования в Telegram
+        try:
+            from aiogram.types import FSInputFile
+            audio_for_cache = FSInputFile(converted_path)
+            cache_msg = await message.bot.send_audio(
+                chat_id=message.chat.id,
+                audio=audio_for_cache,
+                title=auto_generated_title
+            )
+
+            # Сохраняем file_id
+            if cache_msg.audio:
+                lesson.telegram_file_id = cache_msg.audio.file_id
+                await update_lesson(lesson)
+                logger.info(f"File_id сохранен для урока {lesson.id}")
+
+            # Удаляем служебное сообщение
+            try:
+                await cache_msg.delete()
+            except:
+                pass
+        except Exception as e:
+            logger.warning(f"Не удалось предзагрузить file_id: {e}")
 
         # Показываем окно успеха с кнопкой OK (Single-Window Pattern)
         series_id = data.get("series_id")
@@ -1297,10 +1289,23 @@ async def lesson_created_ok_handler(callback: CallbackQuery):
 
 # === Helper функции ===
 
+def generate_lesson_title(teacher_name: str, book_name: str, series_year: int, series_name: str, lesson_number: int) -> str:
+    """Генерирует название урока из метаданных"""
+    parts = []
+    if teacher_name:
+        parts.append(teacher_name.replace(" ", "_"))
+    if book_name:
+        parts.append(book_name.replace(" ", "_"))
+    parts.append(str(series_year))
+    parts.append(series_name.replace(" ", "_"))
+    parts.append(f"урок_{lesson_number}")
+    return "_".join(parts)
+
+
 def build_lesson_info_and_menu(lesson) -> tuple[str, InlineKeyboardMarkup]:
     """Построить информацию и меню редактирования урока"""
     # Формируем информацию об уроке
-    info = f"🎧 <b>{lesson.display_title}</b>\n\n"
+    info = f"🎧 <b>Урок {lesson.lesson_number}</b>\n\n"
     info += f"📁 Серия: {lesson.series_display}\n"
     info += f"📚 Тема: {lesson.theme_name}\n"
     info += f"📖 Книга: {lesson.book_title}\n"
@@ -1321,7 +1326,6 @@ def build_lesson_info_and_menu(lesson) -> tuple[str, InlineKeyboardMarkup]:
     # Строим меню
     builder = InlineKeyboardBuilder()
     builder.add(InlineKeyboardButton(text="✏️ Изменить номер урока", callback_data=f"edit_lesson_number_{lesson.id}"))
-    builder.add(InlineKeyboardButton(text="✏️ Редактировать название", callback_data=f"edit_lesson_title_{lesson.id}"))
     builder.add(InlineKeyboardButton(text="✏️ Редактировать описание", callback_data=f"edit_lesson_description_{lesson.id}"))
     builder.add(InlineKeyboardButton(text="✏️ Изменить теги", callback_data=f"edit_lesson_tags_{lesson.id}"))
     builder.add(InlineKeyboardButton(text="🎵 Заменить аудиофайл", callback_data=f"replace_lesson_audio_{lesson.id}"))
@@ -1432,6 +1436,12 @@ async def save_edited_lesson_number(message: Message, state: FSMContext):
         lesson.lesson_number = new_number
         await update_lesson(lesson)
 
+        # Регенерируем тайтл урока при изменении номера
+        if old_number != new_number:
+            success = await regenerate_lesson_title(lesson_id)
+            if success:
+                logger.info(f"Регенерирован тайтл урока {lesson_id}: номер изменён с {old_number} на {new_number}")
+
         # Удаляем сообщение пользователя
         try:
             await message.delete()
@@ -1470,86 +1480,6 @@ async def save_edited_lesson_number(message: Message, state: FSMContext):
                 InlineKeyboardButton(text="🔙 Отмена", callback_data=f"edit_lesson_{lesson_id}")
             ]])
         )
-
-
-@router.callback_query(F.data.regexp(r"^edit_lesson_title_\d+$"))
-@admin_required
-async def edit_lesson_title_handler(callback: CallbackQuery, state: FSMContext):
-    """Изменить название урока"""
-    lesson_id = int(callback.data.split("_")[3])
-    lesson = await get_lesson_by_id(lesson_id)
-
-    if not lesson:
-        await callback.answer("Урок не найден", show_alert=True)
-        return
-
-    # Сохраняем lesson_id и message_id в состояние
-    await state.update_data(
-        editing_lesson_id=lesson_id,
-        edit_message_id=callback.message.message_id,
-        edit_chat_id=callback.message.chat.id
-    )
-
-    await callback.message.edit_text(
-        f"📝 <b>Редактирование названия урока</b>\n\n"
-        f"Текущее название: {lesson.title}\n\n"
-        f"Введите новое название урока:",
-        reply_markup=InlineKeyboardMarkup(inline_keyboard=[[
-            InlineKeyboardButton(text="🔙 Отмена", callback_data=f"edit_lesson_{lesson_id}")
-        ]])
-    )
-    await state.set_state(LessonStates.edit_title)
-    await callback.answer()
-
-
-@router.message(LessonStates.edit_title)
-@admin_required
-async def save_edited_lesson_title(message: Message, state: FSMContext):
-    """Сохранить отредактированное название урока"""
-    data = await state.get_data()
-    lesson_id = data.get("editing_lesson_id")
-
-    lesson = await get_lesson_by_id(lesson_id)
-    if not lesson:
-        await message.answer("❌ Урок не найден")
-        await state.clear()
-        return
-
-    new_title = message.text.strip()
-    old_title = lesson.title
-
-    lesson.title = new_title
-    await update_lesson(lesson)
-
-    # Удаляем сообщение пользователя
-    try:
-        await message.delete()
-    except:
-        pass
-
-    # Получаем сохранённое сообщение из state
-    edit_message_id = data.get("edit_message_id")
-    edit_chat_id = data.get("edit_chat_id")
-
-    # Очищаем state
-    await state.clear()
-
-    # Перезагружаем урок с обновлёнными данными
-    lesson = await get_lesson_by_id(lesson_id)
-    info, markup = build_lesson_info_and_menu(lesson)
-
-    # Редактируем сохранённое сообщение
-    if edit_message_id and edit_chat_id:
-        try:
-            await message.bot.edit_message_text(
-                chat_id=edit_chat_id,
-                message_id=edit_message_id,
-                text=info,
-                reply_markup=markup
-            )
-        except Exception as e:
-            # Если не получилось отредактировать, отправляем новое
-            await message.answer(info, reply_markup=markup)
 
 
 @router.callback_query(F.data.regexp(r"^edit_lesson_description_\d+$"))
@@ -2291,6 +2221,7 @@ async def replace_lesson_audio_file(message: Message, state: FSMContext):
         # Обновляем поля урока
         lesson.audio_path = converted_path
         lesson.duration_seconds = duration_seconds
+        lesson.telegram_file_id = None  # Сбрасываем старый кэш
 
         # Сохраняем изменения в БД
         await update_lesson(lesson)
@@ -2304,6 +2235,39 @@ async def replace_lesson_audio_file(message: Message, state: FSMContext):
             except Exception as e:
                 logger.error(f"Ошибка при удалении старого файла {old_audio_path}: {e}")
                 # Это не критично - новый файл уже в БД, просто старый остался на диске
+
+        # Предзагрузка file_id: отправляем новое аудио для кэширования в Telegram
+        try:
+            from aiogram.types import FSInputFile
+            # Генерируем автоматическое название
+            auto_generated_title = generate_lesson_title(
+                teacher_name=teacher.name if teacher else "",
+                book_name=book.name if book else "",
+                series_year=series.year if series else 0,
+                series_name=series.name if series else "",
+                lesson_number=lesson.lesson_number if lesson.lesson_number else 0
+            )
+
+            audio_for_cache = FSInputFile(converted_path)
+            cache_msg = await message.bot.send_audio(
+                chat_id=message.chat.id,
+                audio=audio_for_cache,
+                title=auto_generated_title
+            )
+
+            # Сохраняем file_id
+            if cache_msg.audio:
+                lesson.telegram_file_id = cache_msg.audio.file_id
+                await update_lesson(lesson)
+                logger.info(f"File_id сохранен после замены для урока {lesson.id}")
+
+            # Удаляем служебное сообщение
+            try:
+                await cache_msg.delete()
+            except:
+                pass
+        except Exception as e:
+            logger.warning(f"Не удалось предзагрузить file_id: {e}")
 
         # Удаляем сообщения
         await processing_msg.delete()
